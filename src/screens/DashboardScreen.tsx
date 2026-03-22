@@ -1,15 +1,18 @@
 import React, { useContext } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Image } from 'react-native';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { RiskProfile } from '../types';
+import { getThemeClasses } from '../utils/theme';
+import { Header } from '../components/Header';
 
 export const DashboardScreen = ({ navigation }: any) => {
-  const { user, walletBalance, investments, expenses, transactions } = useContext(AppContext);
+  const { user, walletBalance, investments, expenses, transactions, theme, toggleTheme } = useContext(AppContext);
+  const tc = getThemeClasses(theme);
 
   const totalInvestments = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
-  const thisMonthExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0); // Simplified for MVP
+  const thisMonthExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const getAIInsight = (profile: RiskProfile) => {
     if (profile === 'LOW') {
@@ -22,17 +25,34 @@ export const DashboardScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-gray-950`}>
+    <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
+      <Header title="GroWin" />
+
       <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1`}>
-        {/* Header */}
-        <View style={tw`p-6 pt-8 flex-row justify-between items-center`}>
+        {/* Welcome */}
+        <View style={tw`p-6 pt-6 flex-row justify-between items-center`}>
           <View>
-            <Text style={tw`text-gray-400 font-medium`}>Welcome back,</Text>
-            <Text style={tw`text-2xl font-bold text-white mt-1`}>{user.name}</Text>
+            <Text style={tw`${tc.textSecondary} font-medium`}>Welcome back,</Text>
+            <Text style={tw`text-2xl font-bold ${tc.textMain} mt-1`}>{user.name}</Text>
           </View>
           <TouchableOpacity style={tw`bg-emerald-500/20 p-2 rounded-full`} onPress={() => navigation.navigate('Wallet')}>
              <Ionicons name="wallet" size={24} color="#10B981" />
           </TouchableOpacity>
+        </View>
+
+        {/* Dynamic Image Banner */}
+        <View style={tw`px-6 mb-6`}>
+           <View style={tw`w-full h-32 rounded-3xl overflow-hidden shadow-lg border ${tc.borderEmeraldTint}`}>
+             <Image 
+               source={require('../../assets/finance_banner.png')} 
+               style={tw`w-full h-full opacity-80 bg-emerald-900`}
+               resizeMode="cover"
+             />
+             <View style={tw`absolute inset-0 p-5 justify-center`}>
+               <Text style={tw`text-white font-bold text-lg`}>Automate Your Wealth</Text>
+               <Text style={tw`text-emerald-100 text-xs mt-1 max-w-[70%]`}>Let AI find the perfect SIP strategies for your specific risk profile.</Text>
+             </View>
+           </View>
         </View>
 
         {/* Balances */}
@@ -57,73 +77,76 @@ export const DashboardScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* AI Insight */}
+        {/* Floating AI Call to action */}
         <View style={tw`px-6 mb-8`}>
-          <Text style={tw`text-white font-bold text-lg mb-4`}>✨ AI Financial Assistant</Text>
-          <View style={tw`bg-gray-900 border border-gray-800 p-5 rounded-2xl`}>
-            <View style={tw`flex-row items-center mb-3`}>
-              <View style={tw`bg-emerald-500/20 p-2 rounded-full mr-3`}>
-                <Ionicons name="sparkles" size={16} color="#10B981" />
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('ChatBot')}
+            style={tw`${tc.backgroundCard} border ${tc.borderEmeraldTint} p-4 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10`}
+          >
+            <View style={tw`flex-row items-center flex-1`}>
+              <View style={tw`bg-emerald-500/20 p-2 rounded-full mr-3 border border-emerald-500/30`}>
+                <Ionicons name="hardware-chip" size={24} color="#10B981" />
               </View>
-              <Text style={tw`text-emerald-400 font-bold`}>{user.riskProfile} Risk Profile</Text>
+              <View style={tw`flex-1`}>
+                <Text style={tw`font-bold ${tc.textMain} text-base`}>Ask GroWin AI Advisor</Text>
+                <Text style={tw`${tc.textSecondary} text-xs mt-0.5`}>Get personalized SIP suggestions based on your profile.</Text>
+              </View>
             </View>
-            <Text style={tw`text-gray-300 leading-relaxed`}>
-              {getAIInsight(user.riskProfile)}
-            </Text>
-          </View>
+            <Ionicons name="chevron-forward" size={20} color="#10B981" />
+          </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
         <View style={tw`px-6 mb-8 flex-row justify-between`}>
           <TouchableOpacity 
-            style={tw`bg-gray-900 border border-gray-800 flex-1 p-4 rounded-2xl items-center mr-2`}
+            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center mr-2 shadow-sm shadow-black/5`}
             onPress={() => navigation.navigate('Investments')}
           >
             <Ionicons name="trending-up" size={28} color="#10B981" style={tw`mb-2`} />
-            <Text style={tw`text-white font-medium`}>Invest</Text>
+            <Text style={tw`${tc.textMain} font-medium`}>Invest</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={tw`bg-gray-900 border border-gray-800 flex-1 p-4 rounded-2xl items-center mx-2`}
+            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center mx-2 shadow-sm shadow-black/5`}
             onPress={() => navigation.navigate('Expenses')}
           >
             <Ionicons name="pie-chart" size={28} color="#F59E0B" style={tw`mb-2`} />
-            <Text style={tw`text-white font-medium`}>Track</Text>
+            <Text style={tw`${tc.textMain} font-medium`}>Track</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={tw`bg-gray-900 border border-gray-800 flex-1 p-4 rounded-2xl items-center ml-2`}
+            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center ml-2 shadow-sm shadow-black/5`}
             onPress={() => navigation.navigate('Goals')}
           >
             <Ionicons name="flag" size={28} color="#3B82F6" style={tw`mb-2`} />
-            <Text style={tw`text-white font-medium`}>Goals</Text>
+            <Text style={tw`${tc.textMain} font-medium`}>Goals</Text>
           </TouchableOpacity>
         </View>
 
         {/* Recent Transactions Preview */}
         <View style={tw`px-6 mb-8`}>
           <View style={tw`flex-row justify-between items-center mb-4`}>
-            <Text style={tw`text-white font-bold text-lg`}>Recent Activity</Text>
+            <Text style={tw`${tc.textMain} font-bold text-lg`}>Recent Activity</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
               <Text style={tw`text-emerald-500 font-medium`}>View All</Text>
             </TouchableOpacity>
           </View>
           
           {transactions.length === 0 ? (
-            <View style={tw`bg-gray-900 border border-gray-800 p-6 rounded-2xl items-center`}>
-              <Text style={tw`text-gray-400`}>No recent activity yet</Text>
+            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-6 rounded-2xl items-center`}>
+              <Text style={tw`${tc.textSecondary}`}>No recent activity yet</Text>
             </View>
           ) : (
             transactions.slice(0, 3).map((tx) => (
-              <View key={tx.id} style={tw`bg-gray-900 border border-gray-800 p-4 rounded-2xl mb-3 flex-row justify-between items-center`}>
+              <View key={tx.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} p-4 rounded-2xl mb-3 flex-row justify-between items-center shadow-sm shadow-black/5`}>
                 <View style={tw`flex-row items-center`}>
                   <View style={tw`${tx.type === 'CREDIT' ? 'bg-emerald-500/20' : 'bg-red-500/20'} p-3 rounded-xl mr-4`}>
                     <Ionicons name={tx.type === 'CREDIT' ? 'arrow-down' : 'arrow-up'} size={20} color={tx.type === 'CREDIT' ? '#10B981' : '#EF4444'} />
                   </View>
                   <View>
-                    <Text style={tw`text-white font-medium mb-1`}>{tx.title}</Text>
-                    <Text style={tw`text-gray-500 text-xs`}>{new Date(tx.date).toLocaleDateString()}</Text>
+                    <Text style={tw`${tc.textMain} font-medium mb-1`}>{tx.title}</Text>
+                    <Text style={tw`${tc.textMuted} text-xs`}>{new Date(tx.date).toLocaleDateString()}</Text>
                   </View>
                 </View>
-                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-400' : 'text-white'} font-bold`}>
+                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-500' : tc.textMain} font-bold`}>
                   {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
                 </Text>
               </View>
