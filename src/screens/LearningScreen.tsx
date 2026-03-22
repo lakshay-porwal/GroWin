@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, LayoutAnimation, UIManager, Platform } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, LayoutAnimation, UIManager, Platform, Image } from 'react-native';
 import tw from 'twrnc';
 import { Ionicons } from '@expo/vector-icons';
+import { AppContext } from '../context/AppContext';
+import { getThemeClasses } from '../utils/theme';
+import { Header } from '../components/Header';
 
 if (
   Platform.OS === 'android' &&
@@ -38,6 +41,8 @@ const MODULES = [
 ];
 
 export const LearningScreen = () => {
+  const { theme } = useContext(AppContext);
+  const tc = getThemeClasses(theme);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const toggleExpand = (id: number) => {
@@ -46,41 +51,51 @@ export const LearningScreen = () => {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-gray-950`}>
-      <View style={tw`p-6 pt-8 pb-4`}>
-        <Text style={tw`text-3xl font-bold text-white mb-1`}>Learn</Text>
-        <Text style={tw`text-gray-400`}>Mini-lessons to level up your financial IQ 🧠</Text>
-      </View>
+    <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
+      <Header title="Learn" subtitle="Mini-lessons to level up your financial IQ 🧠" />
 
-      <ScrollView style={tw`flex-1 px-6`} showsVerticalScrollIndicator={false}>
+      <ScrollView style={tw`flex-1 px-6 pt-2`} showsVerticalScrollIndicator={false}>
+        {/* Decorative AI Banner */}
+        <View style={tw`w-full h-32 rounded-3xl overflow-hidden shadow-lg border ${tc.borderEmeraldTint} mb-6 mt-2`}>
+           <Image 
+             source={require('../../assets/learning_banner.png')} 
+             style={tw`w-full h-full`}
+             resizeMode="cover"
+           />
+           <View style={tw`absolute inset-0 bg-black/30 p-5 justify-center`}>
+             <Text style={tw`text-white font-bold text-lg`}>Master the Markets</Text>
+             <Text style={tw`text-emerald-100 text-xs mt-1 w-[80%]`}>Read bite-sized articles to make smarter financial decisions.</Text>
+           </View>
+        </View>
+
         {MODULES.map((module) => {
           const isExpanded = expandedId === module.id;
           return (
             <TouchableOpacity 
               key={module.id} 
-              style={tw`bg-gray-900 border ${isExpanded ? 'border-emerald-500/50' : 'border-gray-800'} p-5 rounded-3xl mb-4 shadow-sm`}
+              style={tw`${tc.backgroundCard} border ${isExpanded ? 'border-emerald-500/50' : tc.borderMain} p-5 rounded-3xl mb-4 shadow-sm shadow-black/5`}
               onPress={() => toggleExpand(module.id)}
               activeOpacity={0.8}
             >
               <View style={tw`flex-row justify-between items-center`}>
                 <View style={tw`flex-row items-center flex-1 pr-4`}>
-                  <View style={tw`bg-emerald-500/10 p-3 rounded-xl mr-4 border border-emerald-500/20`}>
+                  <View style={tw`${tc.bgEmeraldTint} p-3 rounded-xl mr-4 border ${tc.borderEmeraldTint}`}>
                     <Ionicons name={module.icon as any} size={24} color="#10B981" />
                   </View>
-                  <Text style={tw`text-lg font-bold text-white flex-1`} numberOfLines={isExpanded ? undefined : 1}>
+                  <Text style={tw`text-lg font-bold ${tc.textMain} flex-1`} numberOfLines={isExpanded ? undefined : 1}>
                     {module.title}
                   </Text>
                 </View>
                 <Ionicons 
                   name={isExpanded ? 'chevron-up' : 'chevron-down'} 
                   size={20} 
-                  color="#9CA3AF" 
+                  color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} 
                 />
               </View>
 
               {isExpanded && (
-                <View style={tw`mt-4 pt-4 border-t border-gray-800`}>
-                  <Text style={tw`text-gray-300 leading-relaxed text-base`}>
+                <View style={tw`mt-4 pt-4 border-t ${tc.borderMain}`}>
+                  <Text style={tw`${tc.textSecondary} leading-relaxed text-base`}>
                     {module.content}
                   </Text>
                   <View style={tw`mt-4 flex-row justify-end`}>
@@ -97,8 +112,8 @@ export const LearningScreen = () => {
             <Ionicons name="school" size={28} color="#FFF" />
           </View>
           <View style={tw`flex-1`}>
-            <Text style={tw`text-white font-bold text-lg mb-1`}>Keep Learning!</Text>
-            <Text style={tw`text-emerald-200 text-sm leading-tight`}>
+            <Text style={tw`${tc.textMain} font-bold text-lg mb-1`}>Keep Learning!</Text>
+            <Text style={tw`${theme === 'dark' ? 'text-emerald-200' : 'text-emerald-700'} text-sm leading-tight`}>
               "An investment in knowledge pays the best interest." - Benjamin Franklin
             </Text>
           </View>

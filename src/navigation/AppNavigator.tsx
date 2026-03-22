@@ -14,6 +14,7 @@ import { InvestmentsScreen } from '../screens/InvestmentsScreen';
 import { ExpenseScreen } from '../screens/ExpenseScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { LearningScreen } from '../screens/LearningScreen';
+import { ChatBotScreen } from '../screens/ChatBotScreen';
 
 // Context
 import { AppContext } from '../context/AppContext';
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   MainTabs: undefined;
   Wallet: undefined;
+  ChatBot: undefined;
 };
 
 export type TabParamList = {
@@ -94,6 +96,10 @@ export const AppNavigator = () => {
                 headerTintColor: '#fff',
                 title: 'My Wallet'
               }} 
+            />
+            <Stack.Screen 
+              name="ChatBot" 
+              component={ChatBotScreen} 
             />
           </>
         )}

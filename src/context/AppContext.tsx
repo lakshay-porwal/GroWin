@@ -2,6 +2,7 @@ import React, { createContext, useState, ReactNode } from 'react';
 import { AppState, RiskProfile, Expense, Investment, Goal, Transaction } from '../types';
 
 interface AppContextProps extends AppState {
+  theme: 'light' | 'dark';
   login: (name: string) => void;
   logout: () => void;
   setRiskProfile: (profile: RiskProfile) => void;
@@ -10,6 +11,7 @@ interface AppContextProps extends AppState {
   addGoal: (goal: Omit<Goal, 'id' | 'savedAmount'>) => void;
   updateGoal: (id: string, amount: number) => void;
   addMoneyToWallet: (amount: number) => void;
+  toggleTheme: () => void;
 }
 
 const initialState: AppState = {
@@ -18,15 +20,31 @@ const initialState: AppState = {
     isLoggedIn: false,
     riskProfile: null,
   },
-  walletBalance: 0,
-  expenses: [],
-  investments: [],
-  goals: [],
-  transactions: [],
+  walletBalance: 15000,
+  expenses: [
+    { id: 'e1', title: 'Spotify Subscription', amount: 119, category: 'Subscriptions', date: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: 'e2', title: 'College Cafeteria', amount: 350, category: 'Food', date: new Date(Date.now() - 86400000 * 1).toISOString() },
+    { id: 'e3', title: 'Uber to Library', amount: 220, category: 'Travel', date: new Date(Date.now() - 86400000 * 3).toISOString() },
+    { id: 'e4', title: 'Semester Books', amount: 1500, category: 'Learning', date: new Date(Date.now() - 86400000 * 5).toISOString() },
+  ],
+  investments: [
+    { id: 'i1', title: 'Student Starter SIP', amount: 500, type: 'SIP', riskLevel: 'LOW', currentValue: 512, expectedReturn: '8% p.a.' },
+  ],
+  goals: [
+    { id: 'g1', title: 'New Laptop', targetAmount: 60000, savedAmount: 15000 },
+    { id: 'g2', title: 'Goa Trip', targetAmount: 15000, savedAmount: 3000 },
+  ],
+  transactions: [
+    { id: 't4', type: 'DEBIT', title: 'College Cafeteria', amount: 350, date: new Date(Date.now() - 86400000 * 1).toISOString() },
+    { id: 't3', type: 'DEBIT', title: 'Spotify Subscription', amount: 119, date: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: 't2', type: 'DEBIT', title: 'Uber to Library', amount: 220, date: new Date(Date.now() - 86400000 * 3).toISOString() },
+    { id: 't1', type: 'CREDIT', title: 'Pocket Money', amount: 5000, date: new Date(Date.now() - 86400000 * 4).toISOString() },
+  ],
 };
 
 export const AppContext = createContext<AppContextProps>({
   ...initialState,
+  theme: 'dark',
   login: () => {},
   logout: () => {},
   setRiskProfile: () => {},
@@ -35,10 +53,16 @@ export const AppContext = createContext<AppContextProps>({
   addGoal: () => {},
   updateGoal: () => {},
   addMoneyToWallet: () => {},
+  toggleTheme: () => {},
 });
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AppState>(initialState);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   const login = (name: string) => {
     setState((prev) => ({
@@ -139,6 +163,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     <AppContext.Provider
       value={{
         ...state,
+        theme,
         login,
         logout,
         setRiskProfile,
@@ -147,6 +172,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addGoal,
         updateGoal,
         addMoneyToWallet,
+        toggleTheme,
       }}
     >
       {children}
