@@ -13,12 +13,15 @@ import { Header } from '../components/Header';
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
 
 export const WalletScreen = () => {
-  const { walletBalance, transactions, addMoneyToWallet, investments, theme } = useContext(AppContext);
+  const { walletBalance, transactions, addMoneyToWallet, withdrawMoneyFromWallet, investments, theme } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const isDark = theme === 'dark';
 
   const [modalVisible, setModalVisible] = useState(false);
   const [amount, setAmount] = useState('');
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawError, setWithdrawError] = useState('');
 
   const handleAdd = () => {
     const n = parseFloat(amount);
@@ -26,6 +29,19 @@ export const WalletScreen = () => {
       addMoneyToWallet(n);
       setAmount('');
       setModalVisible(false);
+    }
+  };
+
+  const handleWithdraw = () => {
+    const n = parseFloat(withdrawAmount);
+    if (isNaN(n) || n <= 0) { setWithdrawError('Enter a valid amount.'); return; }
+    const { success, message } = withdrawMoneyFromWallet(n);
+    if (success) {
+      setWithdrawAmount('');
+      setWithdrawError('');
+      setWithdrawVisible(false);
+    } else {
+      setWithdrawError(message);
     }
   };
 
@@ -47,13 +63,22 @@ export const WalletScreen = () => {
           <Text style={tw`text-emerald-100 text-xs font-semibold uppercase tracking-widest mb-1`}>Available Balance</Text>
           <Text style={tw`text-white text-4xl font-extrabold mb-4`}>₹{walletBalance.toLocaleString()}</Text>
 
-          <TouchableOpacity
-            style={tw`bg-white/20 border border-white/30 self-start flex-row items-center px-5 py-2.5 rounded-xl`}
-            onPress={() => setModalVisible(true)}
-          >
-            <Ionicons name="add-circle" size={18} color="#fff" />
-            <Text style={tw`text-white font-bold ml-2`}>Add Money</Text>
-          </TouchableOpacity>
+          <View style={tw`flex-row gap-3`}>
+            <TouchableOpacity
+              style={tw`flex-1 bg-white/20 border border-white/30 flex-row items-center justify-center px-4 py-2.5 rounded-xl`}
+              onPress={() => setModalVisible(true)}
+            >
+              <Ionicons name="add-circle" size={17} color="#fff" />
+              <Text style={tw`text-white font-bold ml-1.5`}>Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={tw`flex-1 bg-red-500/30 border border-red-300/30 flex-row items-center justify-center px-4 py-2.5 rounded-xl`}
+              onPress={() => { setWithdrawError(''); setWithdrawVisible(true); }}
+            >
+              <Ionicons name="arrow-up-circle" size={17} color="#FCA5A5" />
+              <Text style={tw`text-red-200 font-bold ml-1.5`}>Withdraw</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats Row */}
@@ -152,6 +177,66 @@ export const WalletScreen = () => {
               activeOpacity={0.8}
             >
               <Text style={tw`text-white font-bold text-base`}>Add to Wallet</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Withdraw Modal */}
+      <Modal animationType="slide" transparent visible={withdrawVisible} onRequestClose={() => setWithdrawVisible(false)}>
+        <View style={tw`flex-1 justify-end bg-black/60`}>
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
+            <View style={tw`flex-row justify-between items-center mb-6`}>
+              <View>
+                <Text style={tw`${tc.textMain} text-xl font-bold`}>Withdraw Money</Text>
+                <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>Balance: ₹{walletBalance.toLocaleString('en-IN')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setWithdrawVisible(false)}>
+                <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={tw`bg-red-500/10 border border-red-500/20 rounded-2xl flex-row items-center px-4 py-2 mb-4`}>
+              <Text style={tw`text-red-400 text-3xl font-bold mr-2`}>₹</Text>
+              <TextInput
+                style={tw`flex-1 text-red-400 text-3xl font-bold py-3`}
+                placeholder="0"
+                placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
+                keyboardType="numeric"
+                value={withdrawAmount}
+                onChangeText={t => { setWithdrawAmount(t); setWithdrawError(''); }}
+                autoFocus
+              />
+            </View>
+
+            {withdrawError ? (
+              <View style={tw`flex-row items-center bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4`}>
+                <Ionicons name="warning" size={15} color="#EF4444" />
+                <Text style={tw`text-red-400 text-xs font-medium ml-2 flex-1`}>{withdrawError}</Text>
+              </View>
+            ) : null}
+
+            {/* Quick amounts */}
+            <View style={tw`flex-row mb-6`}>
+              {[500, 1000, 2000, 5000].map(v => (
+                <TouchableOpacity
+                  key={v}
+                  style={tw`flex-1 ${tc.backgroundSecondary} border ${tc.borderSecondary} py-2.5 rounded-xl items-center mx-1 ${walletBalance < v ? 'opacity-40' : ''}`}
+                  onPress={() => { setWithdrawAmount(v.toString()); setWithdrawError(''); }}
+                  disabled={walletBalance < v}
+                >
+                  <Text style={tw`${tc.textMain} font-medium text-xs`}>₹{v >= 1000 ? `${v / 1000}K` : v}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={tw`${!withdrawAmount ? tc.backgroundSecondary : 'bg-red-500'} py-4 items-center rounded-2xl`}
+              onPress={handleWithdraw}
+              disabled={!withdrawAmount}
+              activeOpacity={0.8}
+            >
+              <Text style={tw`${!withdrawAmount ? tc.textMuted : 'text-white'} font-bold text-base`}>Withdraw</Text>
             </TouchableOpacity>
           </View>
         </View>

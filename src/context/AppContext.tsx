@@ -59,6 +59,7 @@ interface AppContextProps extends AppState {
   addGoal: (goal: Omit<Goal, 'id' | 'savedAmount'>) => void;
   updateGoal: (id: string, amount: number) => void;
   addMoneyToWallet: (amount: number) => void;
+  withdrawMoneyFromWallet: (amount: number) => { success: boolean; message: string };
   // Authority
   submitFund: (fund: Omit<Fund, 'id' | 'status' | 'submittedBy' | 'submittedByName' | 'submittedAt'>) => void;
   // Admin
@@ -78,7 +79,7 @@ export const AppContext = createContext<AppContextProps>({
   setRiskProfile: async () => {},
   updateProfile: async () => {},
   addExpense: () => {}, addInvestment: () => {}, addGoal: () => {},
-  updateGoal: () => {}, addMoneyToWallet: () => {},
+  updateGoal: () => {}, addMoneyToWallet: () => {}, withdrawMoneyFromWallet: () => ({ success: false, message: '' }),
   submitFund: () => {}, approveFund: () => {}, rejectFund: () => {},
   toggleTheme: () => {},
 });
@@ -307,6 +308,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const withdrawMoneyFromWallet = (amount: number): { success: boolean; message: string } => {
+    if (amount <= 0) return { success: false, message: 'Enter a valid amount.' };
+    let result = { success: false, message: '' };
+    setUserData(prev => {
+      if (prev.walletBalance < amount) {
+        result = { success: false, message: `Insufficient balance. Available: ₹${prev.walletBalance.toLocaleString('en-IN')}` };
+        return prev;
+      }
+      const newTx: Transaction = { id: Date.now().toString(), type: 'DEBIT', amount, title: 'Withdrawal from Wallet', date: new Date().toISOString() };
+      result = { success: true, message: 'Withdrawn successfully.' };
+      return { ...prev, walletBalance: prev.walletBalance - amount, transactions: [newTx, ...prev.transactions] };
+    });
+    return result;
+  };
+
   // ── Authority Actions ───────────────────────────────────────────────────────
   const submitFund = (fund: Omit<Fund, 'id' | 'status' | 'submittedBy' | 'submittedByName' | 'submittedAt'>) => {
     const newFund: Fund = {
@@ -359,7 +375,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         lastPLUpdate: userData.lastPLUpdate,
         register, loginUser, logout,
         setRiskProfile, updateProfile,
-        addExpense, addInvestment, addGoal, updateGoal, addMoneyToWallet,
+        addExpense, addInvestment, addGoal, updateGoal, addMoneyToWallet, withdrawMoneyFromWallet,
         submitFund, approveFund, rejectFund,
         toggleTheme,
       }}
