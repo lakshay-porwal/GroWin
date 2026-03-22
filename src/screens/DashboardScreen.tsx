@@ -1,7 +1,8 @@
 import React, { useContext } from 'react';
 import {
-  View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions,
+  View, Text, ScrollView, TouchableOpacity, Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';

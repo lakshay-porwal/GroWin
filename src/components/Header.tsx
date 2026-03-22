@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
@@ -14,7 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, subtitle, showBack = false, showAI = true }) => {
-  const { theme, toggleTheme, currentUser } = useContext(AppContext);
+  const { theme, toggleTheme, currentUser, logout } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const navigation = useNavigation<any>();
   const isDark = theme === 'dark';
@@ -64,6 +64,25 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, showBack = fals
             color={isDark ? '#FBBF24' : '#6366F1'}
           />
         </TouchableOpacity>
+
+        {/* Logout button — visible on all student tab screens */}
+        {currentUser?.role === 'student' && (
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Log Out',
+                'Are you sure you want to log out?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Log Out', style: 'destructive', onPress: () => logout() },
+                ],
+              );
+            }}
+            style={tw`w-9 h-9 items-center justify-center rounded-full bg-red-500/15 border border-red-500/30`}
+          >
+            <Ionicons name="log-out-outline" size={17} color="#EF4444" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

@@ -18,6 +18,7 @@ interface UserData {
   investments: Investment[];
   goals: Goal[];
   transactions: Transaction[];
+  lastPLUpdate: string | null; // ISO timestamp of last P&L simulation tick
 }
 
 const EMPTY_USER_DATA: UserData = {
@@ -26,6 +27,7 @@ const EMPTY_USER_DATA: UserData = {
   investments: [],
   goals: [],
   transactions: [],
+  lastPLUpdate: null,
 };
 
 // ─── Seed Admin (always exists) ────────────────────────────────────────────────
@@ -44,6 +46,7 @@ const ADMIN_SEED: AppUser = {
 interface AppContextProps extends AppState {
   theme: 'light' | 'dark';
   isLoaded: boolean;
+  lastPLUpdate: string | null;
   // Auth
   register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; message: string }>;
   loginUser: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
@@ -68,7 +71,7 @@ interface AppContextProps extends AppState {
 export const AppContext = createContext<AppContextProps>({
   currentUser: null, users: [], funds: [],
   ...EMPTY_USER_DATA,
-  theme: 'dark', isLoaded: false,
+  theme: 'dark', isLoaded: false, lastPLUpdate: null,
   register: async () => ({ success: false, message: '' }),
   loginUser: async () => ({ success: false, message: '' }),
   logout: async () => {},
@@ -146,6 +149,51 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       saveUserData(currentUser.id, userData);
     }
   }, [userData, currentUser, isLoaded, saveUserData]);
+
+  // ── Investment P&L simulation (every 3 hours) ────────────────────────
+  const THREE_HOURS_MS = 3 * 60 * 60 * 1000; // 10_800_000 ms
+
+  /**
+   * Apply a small random P&L fluctuation to all investments.
+   * Each investment gains or loses between 0.5% and 2.0%.
+   * Risk profile influences direction bias:
+   *   HIGH  — slightly bullish bias (+0.3%)
+   *   LOW   — slightly defensive (-0.1% floor protects capital)
+   *   MEDIUM — neutral
+   */
+  const applyPLUpdate = useCallback((prevData: UserData, userRisk: string | null): UserData => {
+    if (prevData.investments.length === 0) return prevData;
+    const bias = userRisk === 'HIGH' ? 0.003 : userRisk === 'LOW' ? -0.001 : 0;
+    const updatedInvestments = prevData.investments.map(inv => {
+      const delta = (Math.random() * 0.015 + 0.005 + bias); // 0.5%–2.0% base
+      const direction = Math.random() > 0.42 ? 1 : -1;      // ~58% chance of gain
+      const change = direction * delta;
+      const newValue = Math.max(inv.currentValue * (1 + change), inv.amount * 0.75); // floor at 75% of invested
+      return { ...inv, currentValue: Math.round(newValue * 100) / 100 };
+    });
+    return { ...prevData, investments: updatedInvestments, lastPLUpdate: new Date().toISOString() };
+  }, []);
+
+  // Run P&L update if stale (on load or user switch) and set up recurring interval
+  useEffect(() => {
+    if (!isLoaded || !currentUser || currentUser.role !== 'student') return;
+
+    const runUpdate = () => {
+      setUserData(prev => applyPLUpdate(prev, currentUser.riskProfile));
+    };
+
+    // Check if stale on mount
+    const lastUpdate = userData.lastPLUpdate;
+    const isStale = !lastUpdate || (Date.now() - new Date(lastUpdate).getTime()) >= THREE_HOURS_MS;
+    if (isStale && userData.investments.length > 0) {
+      runUpdate();
+    }
+
+    // Recurring interval — fires every 3 hours
+    const intervalId = setInterval(runUpdate, THREE_HOURS_MS);
+    return () => clearInterval(intervalId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, currentUser?.id]);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const register = async (name: string, email: string, password: string, role: UserRole): Promise<{ success: boolean; message: string }> => {
@@ -308,6 +356,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       value={{
         ...appState,
         theme, isLoaded,
+        lastPLUpdate: userData.lastPLUpdate,
         register, loginUser, logout,
         setRiskProfile, updateProfile,
         addExpense, addInvestment, addGoal, updateGoal, addMoneyToWallet,

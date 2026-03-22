@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import {
-  View, Text, ScrollView, SafeAreaView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity,
   TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+
+import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { Ionicons } from '@expo/vector-icons';
 import { AppContext } from '../context/AppContext';
@@ -14,7 +16,7 @@ const FUND_TYPES = ['MF', 'SIP', 'ETF'] as const;
 
 const StatusBadge = ({ status }: { status: string }) => {
   const cfg: Record<string, { bg: string; text: string; dot: string }> = {
-    PENDING:  { bg: 'bg-yellow-500/15', text: 'text-yellow-400', dot: 'bg-yellow-400' },
+    PENDING: { bg: 'bg-yellow-500/15', text: 'text-yellow-400', dot: 'bg-yellow-400' },
     APPROVED: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', dot: 'bg-emerald-400' },
     REJECTED: { bg: 'bg-red-500/15', text: 'text-red-400', dot: 'bg-red-400' },
   };

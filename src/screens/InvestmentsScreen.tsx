@@ -1,8 +1,9 @@
 import React, { useState, useContext } from 'react';
 import {
-  View, Text, ScrollView, SafeAreaView, TouchableOpacity, Alert,
+  View, Text, ScrollView, TouchableOpacity, Alert,
   Modal, ActivityIndicator, Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +37,7 @@ const RISK_CFG = {
 const TypeIcon: Record<string, any> = { MF: 'briefcase', SIP: 'calendar', ETF: 'bar-chart' };
 
 export const InvestmentsScreen = () => {
-  const { addInvestment, walletBalance, currentUser, funds, theme } = useContext(AppContext);
+  const { addInvestment, walletBalance, currentUser, funds, theme, investments, lastPLUpdate } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const isDark = theme === 'dark';
 
@@ -152,22 +153,63 @@ export const InvestmentsScreen = () => {
         </View>
       )}
 
-      {/* Tab bar */}
-      <View style={tw`flex-row px-5 mb-3`}>
-        {(['ALL', 'MF', 'SIP', 'ETF'] as const).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={tw`mr-2 px-4 py-2 rounded-full border ${activeTab === tab ? 'border-emerald-500 bg-emerald-500/15' : `border-transparent ${tc.backgroundSecondary}`}`}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={tw`font-bold text-xs ${activeTab === tab ? 'text-emerald-500' : tc.textMuted}`}>
-              {tab === 'ALL' ? 'All' : tab === 'MF' ? 'Mutual Funds' : tab}
+      {/* Tab bar + last updated */}
+      <View style={tw`flex-row px-5 mb-3 items-center`}>
+        <View style={tw`flex-row flex-1`}>
+          {(['ALL', 'MF', 'SIP', 'ETF'] as const).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={tw`mr-2 px-4 py-2 rounded-full border ${activeTab === tab ? 'border-emerald-500 bg-emerald-500/15' : `border-transparent ${tc.backgroundSecondary}`}`}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={tw`font-bold text-xs ${activeTab === tab ? 'text-emerald-500' : tc.textMuted}`}>
+                {tab === 'ALL' ? 'All' : tab === 'MF' ? 'Mutual Funds' : tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {lastPLUpdate && (
+          <View style={tw`flex-row items-center`}>
+            <Ionicons name="sync-circle" size={11} color="#10B981" />
+            <Text style={tw`text-emerald-500 text-[10px] font-semibold ml-1`}>
+              {new Date(lastPLUpdate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
             </Text>
-          </TouchableOpacity>
-        ))}
+          </View>
+        )}
       </View>
 
       <ScrollView style={tw`flex-1 px-5`} showsVerticalScrollIndicator={false}>
+        {/* My Portfolio live P&L card */}
+        {investments.length > 0 && activeTab === 'ALL' && (() => {
+          const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
+          const totalCurrent = investments.reduce((s, i) => s + i.currentValue, 0);
+          const totalGain = totalCurrent - totalInvested;
+          const gainPct = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : '0.00';
+          const isProfit = totalGain >= 0;
+          return (
+            <View style={tw`${isProfit ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-red-500/10 border-red-500/25'} border rounded-2xl p-4 mb-4 flex-row items-center`}>
+              <View style={tw`flex-1`}>
+                <Text style={tw`${tc.textMuted} text-[10px] uppercase tracking-widest mb-0.5`}>My Portfolio</Text>
+                <Text style={tw`${tc.textMain} font-extrabold text-xl`}>₹{totalCurrent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+                <View style={tw`flex-row items-center mt-1`}>
+                  <Ionicons name={isProfit ? 'trending-up' : 'trending-down'} size={12} color={isProfit ? '#10B981' : '#EF4444'} />
+                  <Text style={tw`${isProfit ? 'text-emerald-500' : 'text-red-500'} text-xs font-bold ml-1`}>
+                    {isProfit ? '+' : ''}₹{Math.abs(totalGain).toLocaleString('en-IN', { maximumFractionDigits: 0 })} ({isProfit ? '+' : ''}{gainPct}%)
+                  </Text>
+                </View>
+              </View>
+              <View style={tw`items-end`}>
+                <Text style={tw`${tc.textMuted} text-[10px]`}>{investments.length} holding{investments.length !== 1 ? 's' : ''}</Text>
+                <Text style={tw`${tc.textMuted} text-[10px] mt-0.5`}>Invested ₹{totalInvested.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+                {lastPLUpdate && (
+                  <Text style={tw`text-emerald-500 text-[10px] mt-1`}>
+                    Live as of {new Date(lastPLUpdate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                )}
+              </View>
+            </View>
+          );
+        })()}
         {/* Suggested Section */}
         {suggestedFunds.length > 0 && activeTab === 'ALL' && (
           <View style={tw`mb-2`}>
