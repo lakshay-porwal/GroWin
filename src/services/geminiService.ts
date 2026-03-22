@@ -1,15 +1,17 @@
 import { AppState } from '../types';
 
-const GEMINI_API_KEY = "AIzaSyDUNIT4DDLf9r5VFIOf8KB4jaYxvcLz4Ig";
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 export const generateChatResponse = async (userMessage: string, context: AppState): Promise<string> => {
   try {
+    const u = context.currentUser;
     const prompt = `You are a helpful, professional, and friendly AI financial assistant in the 'GroWin' app. 
 The user is a student or young adult learning about investments, expenses, and savings.
 Here is the user's current profile context:
-- Name: ${context.user.name}
-- Risk Profile: ${context.user.riskProfile || 'Unknown'}
+- Name: ${u?.name ?? 'User'}
+- Role: ${u?.role ?? 'student'}
+- Risk Profile: ${u?.riskProfile || 'Unknown'}
 - Wallet Balance: ₹${context.walletBalance}
 - Total Savings Goals: ${context.goals.length}
 - Total Investments: ${context.investments.length}
@@ -20,20 +22,16 @@ Provide a concise, helpful, and insightful response. If they ask about SIPs (Sys
 
     const response = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates.length > 0) {
       return data.candidates[0].content.parts[0].text;
     }
-    
+
     return "I'm sorry, I couldn't process that right now. Please try again.";
   } catch (error) {
     console.error("Error calling Gemini API:", error);
@@ -57,20 +55,16 @@ Provide a short, direct analysis in 2-3 sentences. Be practical and clear. Use b
 
     const response = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates.length > 0) {
       return data.candidates[0].content.parts[0].text;
     }
-    
+
     return "Analysis unavailable at the moment.";
   } catch (error) {
     console.error("Error calling Gemini API:", error);

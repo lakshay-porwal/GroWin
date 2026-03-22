@@ -1,159 +1,220 @@
 import React, { useContext } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Image } from 'react-native';
+import {
+  View, Text, ScrollView, SafeAreaView, TouchableOpacity, Dimensions,
+} from 'react-native';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
-import { RiskProfile } from '../types';
 import { getThemeClasses } from '../utils/theme';
 import { Header } from '../components/Header';
+import { LineChart } from 'react-native-chart-kit';
+
+const W = Dimensions.get('window').width;
+
+// Mock portfolio sparkline data
+const SPARKLINE = [12200, 12800, 12400, 13100, 12900, 13500, 13200, 14000, 13800, 14500, 14200, 15000];
 
 export const DashboardScreen = ({ navigation }: any) => {
-  const { user, walletBalance, investments, expenses, transactions, theme, toggleTheme } = useContext(AppContext);
+  const { currentUser, walletBalance, investments, expenses, transactions, theme } = useContext(AppContext);
   const tc = getThemeClasses(theme);
+  const isDark = theme === 'dark';
 
-  const totalInvestments = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
-  const thisMonthExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
+  const totalCurrentValue = investments.reduce((s, i) => s + i.currentValue, 0);
+  const totalGain = totalCurrentValue - totalInvested;
+  const gainPct = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : '0.00';
+  const isProfit = totalGain >= 0;
 
-  const getAIInsight = (profile: RiskProfile) => {
-    if (profile === 'LOW') {
-      return "You prefer safety. Consider starting a ₹500/month SIP in a low-risk Debt Fund. It provides stable returns with minimal risk.";
-    } else if (profile === 'MEDIUM') {
-      return "You are a balanced investor. A ₹1000/month SIP in an Index Fund would give you steady growth with moderate risk.";
-    } else {
-      return "You have high risk tolerance! Directing 20% of your wallet balance to a Small-Cap Mutual Fund could maximize your long-term growth.";
-    }
+  const thisMonthExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+
+  const getAIInsight = () => {
+    if (!currentUser?.riskProfile) return "Complete your risk profile to get personalized insights.";
+    if (currentUser.riskProfile === 'LOW') return "💡 Safe pick: ₹500/mo in Debt Fund. Capital-protected, 7-9% returns.";
+    if (currentUser.riskProfile === 'MEDIUM') return "💡 Balanced pick: ₹1000/mo in Nifty Index Fund. Steady 10-12% p.a.";
+    return "💡 Power move: Allocate 20% of balance to Small-Cap MF for 15-18% potential.";
   };
+
+  const chartConfig = {
+    backgroundGradientFrom: isDark ? '#111827' : '#ffffff',
+    backgroundGradientTo: isDark ? '#111827' : '#ffffff',
+    backgroundGradientFromOpacity: 0,
+    backgroundGradientToOpacity: 0,
+    color: () => (isProfit ? '#10B981' : '#EF4444'),
+    strokeWidth: 2.5,
+    propsForDots: { r: '0' },
+    propsForBackgroundLines: { stroke: 'transparent' },
+    fillShadowGradient: isProfit ? '#10B981' : '#EF4444',
+    fillShadowGradientOpacity: 0.15,
+  };
+
+  const quickActions = [
+    { label: 'Invest', icon: 'trending-up', color: '#10B981', bg: 'bg-emerald-500/15', route: 'Invest' },
+    { label: 'Wallet', icon: 'wallet', color: '#3B82F6', bg: 'bg-blue-500/15', route: 'Wallet' },
+    { label: 'Expenses', icon: 'pie-chart', color: '#F59E0B', bg: 'bg-amber-500/15', route: 'Expenses' },
+    { label: 'Goals', icon: 'flag', color: '#8B5CF6', bg: 'bg-violet-500/15', route: 'Goals' },
+  ];
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
       <Header title="GroWin" />
 
       <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1`}>
-        {/* Welcome */}
-        <View style={tw`p-6 pt-6 flex-row justify-between items-center`}>
-          <View>
-            <Text style={tw`${tc.textSecondary} font-medium`}>Welcome back,</Text>
-            <Text style={tw`text-2xl font-bold ${tc.textMain} mt-1`}>{user.name}</Text>
-          </View>
-          <TouchableOpacity style={tw`bg-emerald-500/20 p-2 rounded-full`} onPress={() => navigation.navigate('Wallet')}>
-             <Ionicons name="wallet" size={24} color="#10B981" />
-          </TouchableOpacity>
+        {/* Welcome Row */}
+        <View style={tw`px-5 pt-2 pb-4`}>
+          <Text style={tw`${tc.textSecondary} text-xs font-medium`}>Good day,</Text>
+          <Text style={tw`text-xl font-extrabold ${tc.textMain} mt-0.5`}>{currentUser?.name} 👋</Text>
         </View>
 
-        {/* Dynamic Image Banner */}
-        <View style={tw`px-6 mb-6`}>
-           <View style={tw`w-full h-32 rounded-3xl overflow-hidden shadow-lg border ${tc.borderEmeraldTint}`}>
-             <Image 
-               source={require('../../assets/finance_banner.png')} 
-               style={tw`w-full h-full opacity-80 bg-emerald-900`}
-               resizeMode="cover"
-             />
-             <View style={tw`absolute inset-0 p-5 justify-center`}>
-               <Text style={tw`text-white font-bold text-lg`}>Automate Your Wealth</Text>
-               <Text style={tw`text-emerald-100 text-xs mt-1 max-w-[70%]`}>Let AI find the perfect SIP strategies for your specific risk profile.</Text>
-             </View>
-           </View>
-        </View>
-
-        {/* Balances */}
-        <View style={tw`px-6 mb-8`}>
-          <View style={tw`bg-emerald-900 border border-emerald-500 p-6 rounded-3xl shadow-lg relative overflow-hidden`}>
-            <View style={tw`absolute -right-4 -top-4 opacity-20`}>
-               <Ionicons name="trending-up" size={100} color="#10B981" />
-            </View>
-            <Text style={tw`text-emerald-300 font-medium mb-1`}>Total Balance</Text>
-            <Text style={tw`text-4xl font-extrabold text-white`}>₹{walletBalance.toLocaleString()}</Text>
-            
-            <View style={tw`flex-row mt-6 pt-4 border-t border-emerald-500/30`}>
-              <View style={tw`flex-1`}>
-                <Text style={tw`text-emerald-300 font-medium text-xs`}>Invested</Text>
-                <Text style={tw`text-white font-bold text-lg`}>₹{totalInvestments.toLocaleString()}</Text>
+        {/* Portfolio Card */}
+        <View style={tw`mx-5 mb-5 bg-${isDark ? 'gray-900' : 'white'} rounded-3xl border ${tc.borderMain} overflow-hidden`}>
+          <View style={tw`px-5 pt-5 pb-2`}>
+            <Text style={tw`${tc.textSecondary} text-xs font-semibold uppercase tracking-widest`}>Total Portfolio</Text>
+            <Text style={tw`text-4xl font-extrabold ${tc.textMain} mt-1`}>
+              ₹{walletBalance.toLocaleString()}
+            </Text>
+            <View style={tw`flex-row items-center mt-2`}>
+              <View style={tw`flex-row items-center ${isProfit ? 'bg-emerald-500/15' : 'bg-red-500/15'} px-2.5 py-1 rounded-full`}>
+                <Ionicons
+                  name={isProfit ? 'trending-up' : 'trending-down'}
+                  size={13}
+                  color={isProfit ? '#10B981' : '#EF4444'}
+                />
+                <Text style={tw`${isProfit ? 'text-emerald-500' : 'text-red-500'} text-xs font-bold ml-1`}>
+                  {isProfit ? '+' : ''}₹{Math.abs(totalGain).toLocaleString()} ({gainPct}%)
+                </Text>
               </View>
-              <View style={tw`flex-1 border-l border-emerald-500/30 pl-4`}>
-                <Text style={tw`text-emerald-300 font-medium text-xs`}>Spent (This Month)</Text>
-                <Text style={tw`text-white font-bold text-lg`}>₹{thisMonthExpenses.toLocaleString()}</Text>
-              </View>
+              <Text style={tw`${tc.textMuted} text-xs ml-2`}>All time</Text>
             </View>
           </View>
-        </View>
 
-        {/* Floating AI Call to action */}
-        <View style={tw`px-6 mb-8`}>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('ChatBot')}
-            style={tw`${tc.backgroundCard} border ${tc.borderEmeraldTint} p-4 rounded-2xl flex-row items-center justify-between shadow-sm shadow-emerald-500/10`}
-          >
-            <View style={tw`flex-row items-center flex-1`}>
-              <View style={tw`bg-emerald-500/20 p-2 rounded-full mr-3 border border-emerald-500/30`}>
-                <Ionicons name="hardware-chip" size={24} color="#10B981" />
+          {/* Sparkline Chart */}
+          <LineChart
+            data={{ labels: [], datasets: [{ data: SPARKLINE, strokeWidth: 2.5 }] }}
+            width={W - 40}
+            height={90}
+            chartConfig={chartConfig}
+            bezier
+            withHorizontalLabels={false}
+            withVerticalLabels={false}
+            withInnerLines={false}
+            withOuterLines={false}
+            style={{ paddingRight: 0, paddingLeft: 0 }}
+          />
+
+          {/* Stats Row */}
+          <View style={tw`flex-row border-t ${tc.borderMain}`}>
+            {[
+              { label: 'Invested', value: `₹${totalInvested.toLocaleString()}`, color: 'text-blue-400' },
+              { label: 'Gain/Loss', value: `${isProfit ? '+' : ''}₹${Math.abs(totalGain).toLocaleString()}`, color: isProfit ? 'text-emerald-500' : 'text-red-500' },
+              { label: 'Spent', value: `₹${thisMonthExpenses.toLocaleString()}`, color: 'text-amber-400' },
+            ].map((s, i) => (
+              <View key={i} style={tw`flex-1 p-4 items-center ${i < 2 ? `border-r ${tc.borderMain}` : ''}`}>
+                <Text style={tw`${tc.textMuted} text-[10px] uppercase tracking-wider mb-1`}>{s.label}</Text>
+                <Text style={tw`${s.color} font-bold text-sm`}>{s.value}</Text>
               </View>
-              <View style={tw`flex-1`}>
-                <Text style={tw`font-bold ${tc.textMain} text-base`}>Ask GroWin AI Advisor</Text>
-                <Text style={tw`${tc.textSecondary} text-xs mt-0.5`}>Get personalized SIP suggestions based on your profile.</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#10B981" />
-          </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Quick Actions */}
-        <View style={tw`px-6 mb-8 flex-row justify-between`}>
-          <TouchableOpacity 
-            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center mr-2 shadow-sm shadow-black/5`}
-            onPress={() => navigation.navigate('Investments')}
-          >
-            <Ionicons name="trending-up" size={28} color="#10B981" style={tw`mb-2`} />
-            <Text style={tw`${tc.textMain} font-medium`}>Invest</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center mx-2 shadow-sm shadow-black/5`}
-            onPress={() => navigation.navigate('Expenses')}
-          >
-            <Ionicons name="pie-chart" size={28} color="#F59E0B" style={tw`mb-2`} />
-            <Text style={tw`${tc.textMain} font-medium`}>Track</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={tw`${tc.backgroundCard} border ${tc.borderMain} flex-1 p-4 rounded-2xl items-center ml-2 shadow-sm shadow-black/5`}
-            onPress={() => navigation.navigate('Goals')}
-          >
-            <Ionicons name="flag" size={28} color="#3B82F6" style={tw`mb-2`} />
-            <Text style={tw`${tc.textMain} font-medium`}>Goals</Text>
-          </TouchableOpacity>
+        <View style={tw`px-5 mb-5`}>
+          <Text style={tw`${tc.textSecondary} text-xs font-semibold uppercase tracking-widest mb-3`}>Quick Actions</Text>
+          <View style={tw`flex-row justify-between`}>
+            {quickActions.map(a => (
+              <TouchableOpacity
+                key={a.label}
+                style={tw`flex-1 mx-1 items-center ${tc.backgroundCard} border ${tc.borderMain} rounded-2xl py-3.5 px-1`}
+                onPress={() => navigation.navigate(a.route)}
+                activeOpacity={0.75}
+              >
+                <View style={tw`${a.bg} w-10 h-10 rounded-full items-center justify-center mb-2`}>
+                  <Ionicons name={a.icon as any} size={20} color={a.color} />
+                </View>
+                <Text style={tw`${tc.textMain} font-semibold text-xs`}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Recent Transactions Preview */}
-        <View style={tw`px-6 mb-8`}>
-          <View style={tw`flex-row justify-between items-center mb-4`}>
-            <Text style={tw`${tc.textMain} font-bold text-lg`}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
-              <Text style={tw`text-emerald-500 font-medium`}>View All</Text>
-            </TouchableOpacity>
+        {/* AI Insight Banner */}
+        <TouchableOpacity
+          style={tw`mx-5 mb-5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4 flex-row items-center`}
+          onPress={() => navigation.navigate('ChatBot')}
+          activeOpacity={0.8}
+        >
+          <View style={tw`bg-emerald-500 w-10 h-10 rounded-full items-center justify-center mr-3`}>
+            <Ionicons name="sparkles" size={18} color="#fff" />
           </View>
-          
-          {transactions.length === 0 ? (
-            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-6 rounded-2xl items-center`}>
-              <Text style={tw`${tc.textSecondary}`}>No recent activity yet</Text>
+          <View style={tw`flex-1`}>
+            <Text style={tw`text-emerald-500 font-bold text-xs uppercase tracking-wider mb-0.5`}>AI Advisor</Text>
+            <Text style={tw`${tc.textMain} text-sm font-medium leading-5`}>{getAIInsight()}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#10B981" />
+        </TouchableOpacity>
+
+        {/* Holdings */}
+        {investments.length > 0 && (
+          <View style={tw`px-5 mb-5`}>
+            <View style={tw`flex-row justify-between items-center mb-3`}>
+              <Text style={tw`${tc.textMain} font-bold text-base`}>My Holdings</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Investments')}>
+                <Text style={tw`text-emerald-500 text-xs font-semibold`}>+ Add more</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            transactions.slice(0, 3).map((tx) => (
-              <View key={tx.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} p-4 rounded-2xl mb-3 flex-row justify-between items-center shadow-sm shadow-black/5`}>
-                <View style={tw`flex-row items-center`}>
-                  <View style={tw`${tx.type === 'CREDIT' ? 'bg-emerald-500/20' : 'bg-red-500/20'} p-3 rounded-xl mr-4`}>
-                    <Ionicons name={tx.type === 'CREDIT' ? 'arrow-down' : 'arrow-up'} size={20} color={tx.type === 'CREDIT' ? '#10B981' : '#EF4444'} />
+            {investments.slice(0, 3).map(inv => {
+              const gain = inv.currentValue - inv.amount;
+              const pct = ((gain / inv.amount) * 100).toFixed(1);
+              const positive = gain >= 0;
+              return (
+                <View key={inv.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}>
+                  <View style={tw`bg-emerald-500/15 w-11 h-11 rounded-xl items-center justify-center mr-3`}>
+                    <Ionicons name={inv.type === 'SIP' ? 'calendar' : inv.type === 'ETF' ? 'bar-chart' : 'briefcase'} size={20} color="#10B981" />
                   </View>
-                  <View>
-                    <Text style={tw`${tc.textMain} font-medium mb-1`}>{tx.title}</Text>
-                    <Text style={tw`${tc.textMuted} text-xs`}>{new Date(tx.date).toLocaleDateString()}</Text>
+                  <View style={tw`flex-1`}>
+                    <Text style={tw`${tc.textMain} font-semibold text-sm`} numberOfLines={1}>{inv.title}</Text>
+                    <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>{inv.type} · {inv.riskLevel}</Text>
+                  </View>
+                  <View style={tw`items-end`}>
+                    <Text style={tw`${tc.textMain} font-bold text-sm`}>₹{inv.currentValue.toLocaleString()}</Text>
+                    <Text style={tw`${positive ? 'text-emerald-500' : 'text-red-500'} text-xs font-semibold mt-0.5`}>
+                      {positive ? '+' : ''}{pct}%
+                    </Text>
                   </View>
                 </View>
-                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-500' : tc.textMain} font-bold`}>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Recent Transactions */}
+        <View style={tw`px-5 mb-8`}>
+          <View style={tw`flex-row justify-between items-center mb-3`}>
+            <Text style={tw`${tc.textMain} font-bold text-base`}>Recent Transactions</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
+              <Text style={tw`text-emerald-500 text-xs font-semibold`}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          {transactions.length === 0 ? (
+            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-6 rounded-2xl items-center`}>
+              <Text style={tw`${tc.textSecondary} text-sm`}>No transactions yet</Text>
+            </View>
+          ) : (
+            transactions.slice(0, 4).map(tx => (
+              <View key={tx.id} style={tw`flex-row items-center py-3 border-b ${tc.borderMain} last:border-0`}>
+                <View style={tw`${tx.type === 'CREDIT' ? 'bg-emerald-500/15' : 'bg-red-500/15'} w-10 h-10 rounded-full items-center justify-center mr-3`}>
+                  <Ionicons name={tx.type === 'CREDIT' ? 'arrow-down' : 'arrow-up'} size={16} color={tx.type === 'CREDIT' ? '#10B981' : '#EF4444'} />
+                </View>
+                <View style={tw`flex-1`}>
+                  <Text style={tw`${tc.textMain} font-medium text-sm`} numberOfLines={1}>{tx.title}</Text>
+                  <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>{new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+                </View>
+                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'} font-bold text-sm`}>
                   {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
                 </Text>
               </View>
             ))
           )}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

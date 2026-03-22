@@ -1,4 +1,18 @@
-export type RiskProfile = 'LOW' | 'MEDIUM' | 'HIGH' | null;
+export type RiskProfileValue = 'LOW' | 'MEDIUM' | 'HIGH';
+export type RiskProfile = RiskProfileValue | null;
+export type UserRole = 'student' | 'authority' | 'admin';
+export type FundStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  riskProfile: RiskProfile;
+  isLoggedIn: boolean;
+  joinedAt: string;
+}
 
 export interface Expense {
   id: string;
@@ -18,6 +32,22 @@ export interface Investment {
   currentValue: number;
 }
 
+export interface Fund {
+  id: string;
+  title: string;
+  type: 'MF' | 'SIP' | 'ETF';
+  amount: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  expectedReturn: string;
+  description: string;
+  status: FundStatus;
+  submittedBy: string;     // authority user id
+  submittedByName: string; // authority name
+  approvedBy?: string;     // admin user id
+  submittedAt: string;
+  resolvedAt?: string;
+}
+
 export interface Goal {
   id: string;
   title: string;
@@ -34,11 +64,9 @@ export interface Transaction {
 }
 
 export interface AppState {
-  user: {
-    name: string;
-    isLoggedIn: boolean;
-    riskProfile: RiskProfile;
-  };
+  currentUser: AppUser | null;
+  users: AppUser[];
+  funds: Fund[];        // authority-submitted funds
   walletBalance: number;
   expenses: Expense[];
   investments: Investment[];

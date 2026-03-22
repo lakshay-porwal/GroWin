@@ -1,163 +1,189 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, TextInput, Modal, Dimensions } from 'react-native';
+import React, { useContext, useState } from 'react';
+import {
+  View, Text, ScrollView, SafeAreaView, TouchableOpacity,
+  TextInput, Modal, Dimensions,
+} from 'react-native';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
-import { PieChart } from 'react-native-chart-kit';
 import { getThemeClasses } from '../utils/theme';
 import { Header } from '../components/Header';
+import { PieChart } from 'react-native-chart-kit';
 
-const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Subscriptions', 'Others'];
-const CATEGORY_COLORS: { [key: string]: string } = {
-  'Food': '#F59E0B',        // Amber
-  'Travel': '#3B82F6',      // Blue
-  'Shopping': '#EC4899',    // Pink
-  'Subscriptions': '#8B5CF6', // Purple
-  'Others': '#9CA3AF'       // Gray
+const W = Dimensions.get('window').width;
+
+const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Subscriptions', 'Learning', 'Others'];
+const CATEGORY_COLORS: Record<string, string> = {
+  Food: '#F59E0B',
+  Travel: '#3B82F6',
+  Shopping: '#EC4899',
+  Subscriptions: '#8B5CF6',
+  Learning: '#06B6D4',
+  Others: '#9CA3AF',
+};
+const CAT_ICONS: Record<string, string> = {
+  Food: 'restaurant',
+  Travel: 'airplane',
+  Shopping: 'cart',
+  Subscriptions: 'play-circle',
+  Learning: 'book',
+  Others: 'receipt',
 };
 
 export const ExpenseScreen = () => {
   const { expenses, addExpense, walletBalance, theme } = useContext(AppContext);
   const tc = getThemeClasses(theme);
-  
+  const isDark = theme === 'dark';
+
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
 
-  const thisMonthExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const budget = walletBalance + total;
+  const budgetUsedPct = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
 
-  const handleAddExpense = () => {
+  const handleAdd = () => {
     const num = parseFloat(amount);
     if (!isNaN(num) && num > 0 && title.trim()) {
-      addExpense({
-        title,
-        amount: num,
-        category,
-        date: new Date().toISOString()
-      });
-      setTitle('');
-      setAmount('');
-      setCategory(CATEGORIES[0]);
+      addExpense({ title, amount: num, category, date: new Date().toISOString() });
+      setTitle(''); setAmount(''); setCategory(CATEGORIES[0]);
       setModalVisible(false);
     }
   };
 
-  const chartData = CATEGORIES.map(cat => {
-    const totalCat = expenses.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
-    return {
-      name: cat,
-      population: totalCat,
-      color: CATEGORY_COLORS[cat],
-      legendFontColor: theme === 'dark' ? '#9CA3AF' : '#6B7280',
-      legendFontSize: 12
-    };
-  }).filter(d => d.population > 0);
+  const chartData = CATEGORIES.map(cat => ({
+    name: cat,
+    population: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
+    color: CATEGORY_COLORS[cat],
+    legendFontColor: isDark ? '#9CA3AF' : '#6B7280',
+    legendFontSize: 11,
+  })).filter(d => d.population > 0);
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="Expenses" subtitle="Track your monthly spending" />
-      <View style={tw`px-6 pb-2 flex-row justify-end items-center -mt-8 mb-4 z-10`} pointerEvents="box-none">
-        <TouchableOpacity 
-          style={tw`bg-emerald-500 p-3 rounded-xl shadow-lg shadow-emerald-500/30 ml-auto`}
-          onPress={() => setModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
+      <Header title="Expenses" subtitle="Track every rupee" />
 
-      <ScrollView style={tw`flex-1 px-6`} showsVerticalScrollIndicator={false}>
-        <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-6 rounded-3xl mb-6 shadow-sm shadow-black/5`}>
-          <Text style={tw`${tc.textSecondary} font-medium mb-1`}>This Month</Text>
-          <Text style={tw`text-4xl font-extrabold ${tc.textMain}`}>₹{thisMonthExpenses.toLocaleString()}</Text>
-          
-          {thisMonthExpenses > 0 && chartData.length > 0 ? (
-            <View style={tw`mt-6 items-center`}>
-              <PieChart
-                data={chartData}
-                width={Dimensions.get('window').width - 80}
-                height={180}
-                chartConfig={{
-                  color: (opacity = 1) => theme === 'dark' ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
-                }}
-                accessor={"population"}
-                backgroundColor={"transparent"}
-                paddingLeft={"0"}
-                center={[10, 0]}
-                absolute
-              />
+      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+        {/* Summary Card */}
+        <View style={tw`mx-5 mt-2 mb-4 ${tc.backgroundCard} border ${tc.borderMain} rounded-3xl overflow-hidden`}>
+          <View style={tw`px-5 pt-5 pb-4`}>
+            <View style={tw`flex-row justify-between items-start mb-4`}>
+              <View>
+                <Text style={tw`${tc.textMuted} text-xs uppercase tracking-wider`}>Total Spent</Text>
+                <Text style={tw`text-3xl font-extrabold text-red-500 mt-1`}>₹{total.toLocaleString()}</Text>
+              </View>
+              <TouchableOpacity
+                style={tw`bg-emerald-500 flex-row items-center px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/30`}
+                onPress={() => setModalVisible(true)}
+              >
+                <Ionicons name="add" size={16} color="#fff" />
+                <Text style={tw`text-white font-bold text-xs ml-1`}>Add</Text>
+              </TouchableOpacity>
             </View>
+
+            {/* Budget bar */}
+            <View>
+              <View style={tw`flex-row justify-between mb-1.5`}>
+                <Text style={tw`${tc.textMuted} text-xs`}>Budget usage</Text>
+                <Text style={tw`${budgetUsedPct > 80 ? 'text-red-500' : 'text-emerald-500'} text-xs font-bold`}>
+                  {budgetUsedPct.toFixed(0)}%
+                </Text>
+              </View>
+              <View style={tw`h-2 ${tc.backgroundSecondary} rounded-full overflow-hidden`}>
+                <View
+                  style={[
+                    tw`h-full rounded-full`,
+                    { width: `${budgetUsedPct}%`, backgroundColor: budgetUsedPct > 80 ? '#EF4444' : '#10B981' },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Pie Chart */}
+          {chartData.length > 0 ? (
+            <PieChart
+              data={chartData}
+              width={W - 40}
+              height={175}
+              chartConfig={{ color: () => '#10B981' }}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="10"
+              center={[5, 0]}
+              absolute
+            />
           ) : (
-            <View style={tw`mt-6 items-center ${tc.backgroundSecondary} p-6 rounded-2xl border ${tc.borderSecondary}`}>
-              <Ionicons name="pie-chart-outline" size={48} color={theme === 'dark' ? '#4B5563' : '#9CA3AF'} />
-              <Text style={tw`${tc.textMuted} mt-2`}>No expenses recorded yet</Text>
+            <View style={tw`items-center py-8`}>
+              <Ionicons name="pie-chart-outline" size={44} color={isDark ? '#374151' : '#D1D5DB'} />
+              <Text style={tw`${tc.textMuted} text-sm mt-2`}>No expenses yet</Text>
             </View>
           )}
 
-          {walletBalance > 0 && thisMonthExpenses < walletBalance * 0.2 && (
-            <View style={tw`mt-6 bg-emerald-500/20 p-3 rounded-xl flex-row items-center border border-emerald-500/30`}>
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" style={tw`mr-2`} />
-              <Text style={tw`text-emerald-500 flex-1`}>Great! You are spending within limits.</Text>
+          {/* Category breakdown */}
+          {chartData.length > 0 && (
+            <View style={tw`flex-row flex-wrap px-5 pb-4`}>
+              {chartData.map(d => (
+                <View key={d.name} style={tw`flex-row items-center mr-4 mb-2`}>
+                  <View style={[tw`w-2.5 h-2.5 rounded-full mr-1.5`, { backgroundColor: d.color }]} />
+                  <Text style={tw`${tc.textSecondary} text-xs`}>{d.name} ₹{d.population.toLocaleString()}</Text>
+                </View>
+              ))}
             </View>
           )}
         </View>
 
-        <Text style={tw`${tc.textMain} font-bold text-lg mb-4`}>Recent Expenses</Text>
-        {expenses.length === 0 ? (
-          <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-8 rounded-2xl items-center`}>
-            <Text style={tw`${tc.textSecondary}`}>Your transactions will appear here.</Text>
-          </View>
-        ) : (
-          expenses.slice().reverse().map(exp => (
-            <View key={exp.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} p-4 rounded-2xl mb-3 flex-row justify-between items-center shadow-sm shadow-black/5`}>
-              <View style={tw`flex-row items-center flex-1`}>
-                <View style={[tw`w-12 h-12 rounded-xl items-center justify-center mr-4`, {backgroundColor: CATEGORY_COLORS[exp.category] + '20'}]}>
-                  <Ionicons 
-                    name={
-                      exp.category === 'Food' ? 'restaurant' : 
-                      exp.category === 'Travel' ? 'airplane' : 
-                      exp.category === 'Shopping' ? 'cart' : 
-                      exp.category === 'Subscriptions' ? 'play-circle' : 'receipt'
-                    } 
-                    size={20} 
-                    color={CATEGORY_COLORS[exp.category]} 
-                  />
-                </View>
-                <View style={tw`flex-1 mr-2`}>
-                  <Text style={tw`${tc.textMain} font-medium text-base mb-0.5`} numberOfLines={1}>{exp.title}</Text>
-                  <Text style={tw`${tc.textMuted} text-xs`}>{exp.category} • {new Date(exp.date).toLocaleDateString()}</Text>
-                </View>
-              </View>
-              <Text style={tw`text-red-500 font-bold text-lg`}>-₹{exp.amount.toLocaleString()}</Text>
+        {/* Expense List */}
+        <View style={tw`px-5 mb-8`}>
+          <Text style={tw`${tc.textMain} font-bold text-base mb-3`}>
+            All Expenses <Text style={tw`${tc.textMuted} font-normal text-sm`}>({expenses.length})</Text>
+          </Text>
+
+          {expenses.length === 0 ? (
+            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-8 items-center`}>
+              <Text style={tw`text-3xl mb-2`}>💸</Text>
+              <Text style={tw`${tc.textSecondary} text-sm`}>No expenses recorded yet.</Text>
             </View>
-          ))
-        )}
-        <View style={tw`h-10`} />
+          ) : (
+            expenses.slice().reverse().map(exp => (
+              <View key={exp.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}>
+                <View style={[tw`w-11 h-11 rounded-xl items-center justify-center mr-3`, { backgroundColor: CATEGORY_COLORS[exp.category] + '22' }]}>
+                  <Ionicons name={CAT_ICONS[exp.category] as any} size={20} color={CATEGORY_COLORS[exp.category]} />
+                </View>
+                <View style={tw`flex-1`}>
+                  <Text style={tw`${tc.textMain} font-semibold text-sm`} numberOfLines={1}>{exp.title}</Text>
+                  <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>
+                    {exp.category} · {new Date(exp.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+                <Text style={tw`text-red-500 font-bold text-base`}>-₹{exp.amount.toLocaleString()}</Text>
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* Add Expense Modal */}
+      <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={tw`flex-1 justify-end bg-black/60`}>
-          <View style={tw`${tc.backgroundCard} rounded-t-3xl p-6 border-t ${tc.borderMain} h-[80%]`}>
-            <View style={tw`flex-row justify-between items-center mb-6`}>
-              <Text style={tw`text-2xl font-bold ${tc.textMain}`}>Add Expense</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={tw`${tc.backgroundSecondary} p-2 rounded-full`}>
-                <Ionicons name="close" size={24} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={tw`${tc.textSecondary} mb-2 font-medium ml-1`}>Amount</Text>
-              <View style={tw`${tc.inputBackground} rounded-2xl flex-row items-center px-4 py-2 border ${tc.borderSecondary} mb-6`}>
-                <Text style={tw`text-2xl ${tc.textMain} font-bold mr-2`}>₹</Text>
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} max-h-[85%]`}>
+            <ScrollView contentContainerStyle={tw`p-6`} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={tw`flex-row justify-between items-center mb-6`}>
+                <Text style={tw`${tc.textMain} text-xl font-bold`}>Add Expense</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Amount */}
+              <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-2xl flex-row items-center px-4 py-2 mb-5`}>
+                <Text style={tw`text-red-500 text-3xl font-bold mr-2`}>₹</Text>
                 <TextInput
-                  style={tw`flex-1 ${tc.inputText} text-2xl font-bold py-3`}
+                  style={tw`flex-1 ${tc.inputText} text-3xl font-bold py-3`}
                   placeholder="0"
-                  placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                  placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                   keyboardType="numeric"
                   value={amount}
                   onChangeText={setAmount}
@@ -165,42 +191,48 @@ export const ExpenseScreen = () => {
                 />
               </View>
 
-              <Text style={tw`${tc.textSecondary} mb-2 font-medium ml-1`}>What was this for?</Text>
-              <View style={tw`${tc.inputBackground} rounded-2xl flex-row items-center px-4 mb-6 border ${tc.borderSecondary}`}>
-                <Ionicons name="pencil" size={20} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} style={tw`mr-3`} />
+              {/* Title */}
+              <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-xl flex-row items-center px-4 mb-5`}>
+                <Ionicons name="pencil-outline" size={18} color={isDark ? '#6B7280' : '#9CA3AF'} style={tw`mr-3`} />
                 <TextInput
                   style={tw`flex-1 ${tc.inputText} text-base py-4`}
-                  placeholder="e.g. Netflix, Pizza..."
-                  placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                  placeholder="What was this for?"
+                  placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                   value={title}
                   onChangeText={setTitle}
                 />
               </View>
-              
-              <Text style={tw`${tc.textSecondary} mb-3 font-medium ml-1`}>Category</Text>
-              <View style={tw`flex-row flex-wrap justify-between gap-2 mb-8`}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity 
-                    key={cat}
-                    style={[
-                      tw`px-4 py-3 rounded-xl border mb-2`, 
-                      category === cat ? tw`bg-emerald-500 border-emerald-500` : tw`${tc.backgroundSecondary} ${tc.borderSecondary}`
-                    ]}
-                    onPress={() => setCategory(cat)}
-                  >
-                    <Text style={[tw`font-medium`, category === cat ? tw`text-white` : tw`${tc.textSecondary}`]}>{cat}</Text>
-                  </TouchableOpacity>
-                ))}
+
+              {/* Category */}
+              <Text style={tw`${tc.textSecondary} text-xs font-semibold uppercase tracking-wider mb-3`}>Category</Text>
+              <View style={tw`flex-row flex-wrap mb-6`}>
+                {CATEGORIES.map(cat => {
+                  const active = category === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        tw`flex-row items-center px-3 py-2.5 rounded-xl border mr-2 mb-2`,
+                        active
+                          ? { backgroundColor: CATEGORY_COLORS[cat] + '22', borderColor: CATEGORY_COLORS[cat] }
+                          : tw`${tc.backgroundSecondary} border-transparent`,
+                      ]}
+                      onPress={() => setCategory(cat)}
+                    >
+                      <Ionicons name={CAT_ICONS[cat] as any} size={14} color={active ? CATEGORY_COLORS[cat] : (isDark ? '#6B7280' : '#9CA3AF')} style={tw`mr-1.5`} />
+                      <Text style={[tw`font-medium text-xs`, { color: active ? CATEGORY_COLORS[cat] : (isDark ? '#9CA3AF' : '#6B7280') }]}>{cat}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              <TouchableOpacity 
-                style={tw`${!amount || !title ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 items-center rounded-xl shadow-md ${!amount || !title ? '' : 'shadow-emerald-500/30'}`}
-                onPress={handleAddExpense}
+              <TouchableOpacity
+                style={tw`${!amount || !title ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 items-center rounded-2xl`}
+                onPress={handleAdd}
                 disabled={!amount || !title}
               >
-                <Text style={tw`${!amount || !title ? tc.textMuted : 'text-white'} font-bold text-lg`}>Save Expense</Text>
+                <Text style={tw`${!amount || !title ? tc.textMuted : 'text-white'} font-bold text-base`}>Save Expense</Text>
               </TouchableOpacity>
-              <View style={tw`h-10`} />
             </ScrollView>
           </View>
         </View>

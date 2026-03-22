@@ -1,5 +1,8 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, TextInput, Modal, Alert, Image } from 'react-native';
+import {
+  View, Text, ScrollView, SafeAreaView, TouchableOpacity,
+  TextInput, Modal, Alert, Platform
+} from 'react-native';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,228 +10,240 @@ import { Goal } from '../types';
 import { getThemeClasses } from '../utils/theme';
 import { Header } from '../components/Header';
 
+const GOAL_EMOJIS = ['🎯', '💻', '✈️', '🏠', '🎓', '🚗', '📱', '💎'];
+
 export const GoalsScreen = () => {
   const { goals, addGoal, updateGoal, walletBalance, theme } = useContext(AppContext);
   const tc = getThemeClasses(theme);
-  
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [fundModalVisible, setFundModalVisible] = useState(false);
+  const isDark = theme === 'dark';
+
+  const [addModal, setAddModal] = useState(false);
+  const [fundModal, setFundModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
-  
   const [title, setTitle] = useState('');
-  const [targetAmount, setTargetAmount] = useState('');
+  const [target, setTarget] = useState('');
+  const [emoji, setEmoji] = useState(GOAL_EMOJIS[0]);
   const [fundAmount, setFundAmount] = useState('');
 
-  const handleCreateGoal = () => {
-    const num = parseFloat(targetAmount);
-    if (!isNaN(num) && num > 0 && title.trim()) {
-      addGoal({ title, targetAmount: num });
-      setTitle('');
-      setTargetAmount('');
-      setAddModalVisible(false);
+  const totalSaved = goals.reduce((s, g) => s + g.savedAmount, 0);
+  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
+
+  const handleCreate = () => {
+    const n = parseFloat(target);
+    if (!isNaN(n) && n > 0 && title.trim()) {
+      addGoal({ title: `${emoji} ${title}`, targetAmount: n });
+      setTitle(''); setTarget(''); setEmoji(GOAL_EMOJIS[0]);
+      setAddModal(false);
     }
   };
 
-  const handleFundGoal = () => {
-    const num = parseFloat(fundAmount);
-    if (!isNaN(num) && num > 0 && selectedGoal) {
-      if (walletBalance >= num) {
-        updateGoal(selectedGoal.id, num);
+  const handleFund = () => {
+    const n = parseFloat(fundAmount);
+    if (!isNaN(n) && n > 0 && selectedGoal) {
+      if (walletBalance >= n) {
+        updateGoal(selectedGoal.id, n);
         setFundAmount('');
-        setFundModalVisible(false);
-        setSelectedGoal(null);
-        Alert.alert("Success!", `Added ₹${num} to ${selectedGoal.title}`);
+        setFundModal(false);
+        if (Platform.OS === 'web') window.alert(`✅ Funded! ₹${n.toLocaleString()} added to ${selectedGoal.title}`);
+        else Alert.alert('✅ Funded!', `₹${n.toLocaleString()} added to ${selectedGoal.title}`);
       } else {
-        Alert.alert("Insufficient Funds", "You don't have enough balance in your wallet.");
+        if (Platform.OS === 'web') window.alert('Insufficient Balance. Add money to your wallet first.');
+        else Alert.alert('Insufficient Balance', 'Add money to your wallet first.');
       }
     }
-  };
-
-  const openFundModal = (goal: Goal) => {
-    setSelectedGoal(goal);
-    setFundModalVisible(true);
   };
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
       <Header title="Goals" subtitle="Save for what matters most" />
-      <View style={tw`px-6 pb-4 flex-row justify-end items-center -mt-8 mb-4 z-10`} pointerEvents="box-none">
-        <TouchableOpacity 
-          style={tw`bg-emerald-500 p-3 rounded-xl shadow-lg shadow-emerald-500/30 ml-auto`}
-          onPress={() => setAddModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView style={tw`flex-1 px-6`} showsVerticalScrollIndicator={false}>
-        {/* Decorative AI Banner */}
-        <View style={tw`w-full h-32 rounded-3xl overflow-hidden shadow-lg border ${tc.borderEmeraldTint} mb-6`}>
-           <Image 
-             source={require('../../assets/goal_banner.png')} 
-             style={tw`w-full h-full opacity-90`}
-             resizeMode="cover"
-           />
-           <View style={tw`absolute inset-0 bg-black/40 p-5 justify-center`}>
-             <Text style={tw`text-white font-bold text-lg`}>Dream Big.</Text>
-             <Text style={tw`text-emerald-300 text-xs mt-1 w-2/3`}>Visualize your financial freedom and track your progress in real-time.</Text>
-           </View>
-        </View>
-
-        {goals.length === 0 ? (
-          <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-8 rounded-3xl items-center mt-4`}>
-            <View style={tw`${tc.backgroundSecondary} p-4 rounded-full mb-4`}>
-              <Ionicons name="flag-outline" size={48} color="#10B981" />
+      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+        {/* Summary card */}
+        <View style={tw`mx-5 mt-2 mb-5 ${tc.backgroundCard} border ${tc.borderMain} rounded-3xl p-5`}>
+          <View style={tw`flex-row justify-between items-center mb-4`}>
+            <View>
+              <Text style={tw`${tc.textMuted} text-xs uppercase tracking-wider`}>Total Saved</Text>
+              <Text style={tw`text-3xl font-extrabold text-emerald-500 mt-1`}>₹{totalSaved.toLocaleString()}</Text>
+              <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>of ₹{totalTarget.toLocaleString()} target</Text>
             </View>
-            <Text style={tw`text-xl font-bold ${tc.textMain} mb-2`}>No Goals Yet</Text>
-            <Text style={tw`${tc.textSecondary} text-center mb-6`}>Create your first financial goal to start tracking your savings progress.</Text>
-            <TouchableOpacity 
-              style={tw`bg-emerald-500 py-3 px-6 rounded-xl`}
-              onPress={() => setAddModalVisible(true)}
+            <TouchableOpacity
+              style={tw`bg-emerald-500 px-4 py-2.5 rounded-xl flex-row items-center shadow-lg shadow-emerald-500/30`}
+              onPress={() => setAddModal(true)}
             >
-              <Text style={tw`text-white font-bold`}>Create Goal</Text>
+              <Ionicons name="add" size={16} color="#fff" />
+              <Text style={tw`text-white font-bold text-xs ml-1`}>New Goal</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          goals.map((goal) => {
-            const progress = Math.min((goal.savedAmount / goal.targetAmount) * 100, 100);
-            const isCompleted = progress >= 100;
 
-            return (
-              <View key={goal.id} style={tw`${tc.backgroundCard} border ${isCompleted ? 'border-emerald-500/50' : tc.borderMain} p-5 rounded-3xl mb-4 shadow-md shadow-black/5 overflow-hidden relative`}>
-                {isCompleted && (
-                  <View style={tw`absolute -right-6 -top-6 opacity-10`}>
-                    <Ionicons name="trophy" size={100} color="#10B981" />
-                  </View>
-                )}
-                
-                <View style={tw`flex-row justify-between items-start mb-4`}>
-                  <View style={tw`flex-1`}>
-                    <Text style={tw`text-xl font-bold ${tc.textMain} mb-1`}>{goal.title}</Text>
-                    <Text style={tw`text-emerald-500 font-medium`}>
-                      ₹{goal.savedAmount.toLocaleString()} <Text style={tw`${tc.textMuted}`}>/ ₹{goal.targetAmount.toLocaleString()}</Text>
-                    </Text>
-                  </View>
-                  <View style={tw`${tc.backgroundSecondary} p-2 rounded-xl`}>
-                    <Ionicons name={isCompleted ? 'trophy' : 'flag'} size={24} color={isCompleted ? "#F59E0B" : "#10B981"} />
-                  </View>
-                </View>
-
-                {/* Progress Bar */}
-                <View style={tw`mb-5`}>
-                  <View style={tw`flex-row justify-between mb-2`}>
-                    <Text style={tw`${tc.textSecondary} text-xs font-medium`}>Progress</Text>
-                    <Text style={tw`${tc.textSecondary} text-xs font-medium`}>{progress.toFixed(0)}%</Text>
-                  </View>
-                  <View style={tw`h-3 ${tc.backgroundSecondary} rounded-full overflow-hidden`}>
-                    <View style={tw`h-full bg-emerald-500 w-[${progress}%] rounded-full`} />
-                  </View>
-                </View>
-
-                {!isCompleted ? (
-                  <TouchableOpacity 
-                    style={tw`${tc.backgroundSecondary} border ${tc.borderSecondary} py-3 rounded-xl items-center flex-row justify-center active:bg-gray-700`}
-                    onPress={() => openFundModal(goal)}
-                  >
-                    <Ionicons name="add-circle-outline" size={20} color="#10B981" style={tw`mr-2`} />
-                    <Text style={tw`${tc.textMain} font-medium`}>Add Funds</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={tw`bg-emerald-500/20 py-3 rounded-xl items-center flex-row justify-center border border-emerald-500/30`}>
-                    <Ionicons name="checkmark-circle" size={20} color="#10B981" style={tw`mr-2`} />
-                    <Text style={tw`text-emerald-500 font-bold`}>Goal Reached!</Text>
-                  </View>
-                )}
+          {totalTarget > 0 && (
+            <View>
+              <View style={tw`h-2.5 ${tc.backgroundSecondary} rounded-full overflow-hidden`}>
+                <View
+                  style={[tw`h-full rounded-full bg-emerald-500`, { width: `${Math.min((totalSaved / totalTarget) * 100, 100)}%` }]}
+                />
               </View>
-            );
-          })
-        )}
+              <Text style={tw`${tc.textMuted} text-xs mt-1.5 text-right`}>
+                {((totalSaved / totalTarget) * 100).toFixed(0)}% of total goals funded
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Goals list */}
+        <View style={tw`px-5`}>
+          {goals.length === 0 ? (
+            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-3xl p-10 items-center`}>
+              <Text style={tw`text-5xl mb-3`}>🎯</Text>
+              <Text style={tw`${tc.textMain} font-bold text-lg mb-1`}>No Goals Yet</Text>
+              <Text style={tw`${tc.textSecondary} text-sm text-center mb-5`}>Set a financial goal and start saving today!</Text>
+              <TouchableOpacity style={tw`bg-emerald-500 px-6 py-3 rounded-2xl`} onPress={() => setAddModal(true)}>
+                <Text style={tw`text-white font-bold`}>Create First Goal</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            goals.map(g => {
+              const pct = Math.min((g.savedAmount / g.targetAmount) * 100, 100);
+              const done = pct >= 100;
+              const remaining = g.targetAmount - g.savedAmount;
+              return (
+                <View
+                  key={g.id}
+                  style={tw`${tc.backgroundCard} border ${done ? 'border-emerald-500/50' : tc.borderMain} rounded-2xl p-5 mb-4`}
+                >
+                  <View style={tw`flex-row items-start justify-between mb-3`}>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`${tc.textMain} font-bold text-base`}>{g.title}</Text>
+                      <View style={tw`flex-row items-center mt-1`}>
+                        <Text style={tw`text-emerald-500 font-semibold text-sm`}>₹{g.savedAmount.toLocaleString()}</Text>
+                        <Text style={tw`${tc.textMuted} text-sm`}> / ₹{g.targetAmount.toLocaleString()}</Text>
+                      </View>
+                    </View>
+                    {done ? (
+                      <View style={tw`bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full`}>
+                        <Text style={tw`text-amber-400 text-xs font-bold`}>🏆 Done!</Text>
+                      </View>
+                    ) : (
+                      <View style={tw`bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full`}>
+                        <Text style={tw`text-blue-400 text-xs font-bold`}>{pct.toFixed(0)}%</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Progress */}
+                  <View style={tw`h-2 ${tc.backgroundSecondary} rounded-full overflow-hidden mb-2`}>
+                    <View style={[tw`h-full rounded-full`, { width: `${pct}%`, backgroundColor: done ? '#F59E0B' : '#10B981' }]} />
+                  </View>
+                  {!done && (
+                    <Text style={tw`${tc.textMuted} text-xs mb-3`}>₹{remaining.toLocaleString()} remaining</Text>
+                  )}
+
+                  {!done ? (
+                    <TouchableOpacity
+                      style={tw`${tc.backgroundSecondary} border ${tc.borderSecondary} py-2.5 rounded-xl flex-row items-center justify-center`}
+                      onPress={() => { setSelectedGoal(g); setFundModal(true); }}
+                    >
+                      <Ionicons name="add-circle-outline" size={16} color="#10B981" />
+                      <Text style={tw`text-emerald-500 font-bold text-sm ml-2`}>Add Funds</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={tw`bg-emerald-500/10 border border-emerald-500/20 py-2.5 rounded-xl flex-row items-center justify-center`}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      <Text style={tw`text-emerald-500 font-bold text-sm ml-2`}>Goal Completed! 🎉</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
         <View style={tw`h-10`} />
       </ScrollView>
 
       {/* Create Goal Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={addModalVisible}
-        onRequestClose={() => setAddModalVisible(false)}
-      >
+      <Modal animationType="slide" transparent visible={addModal} onRequestClose={() => setAddModal(false)}>
         <View style={tw`flex-1 justify-end bg-black/60`}>
-          <View style={tw`${tc.backgroundCard} rounded-t-3xl p-6 border-t ${tc.borderMain} h-[70%]`}>
-            <View style={tw`flex-row justify-between items-center mb-6`}>
-              <Text style={tw`text-2xl font-bold ${tc.textMain}`}>New Goal</Text>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)} style={tw`${tc.backgroundSecondary} p-2 rounded-full`}>
-                <Ionicons name="close" size={24} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
+            <View style={tw`flex-row justify-between items-center mb-5`}>
+              <Text style={tw`${tc.textMain} text-xl font-bold`}>🎯 New Goal</Text>
+              <TouchableOpacity onPress={() => setAddModal(false)}>
+                <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
               </TouchableOpacity>
             </View>
-            
-            <Text style={tw`${tc.textSecondary} mb-2 font-medium ml-1`}>Goal Title</Text>
-            <View style={tw`${tc.inputBackground} rounded-2xl px-4 py-2 border ${tc.borderSecondary} mb-6`}>
+
+            {/* Emoji selector */}
+            <Text style={tw`${tc.textSecondary} text-xs font-semibold uppercase tracking-wider mb-2`}>Pick an Icon</Text>
+            <View style={tw`flex-row flex-wrap mb-4`}>
+              {GOAL_EMOJIS.map(e => (
+                <TouchableOpacity
+                  key={e}
+                  style={tw`w-11 h-11 items-center justify-center rounded-xl mr-2 mb-2 ${emoji === e ? 'bg-emerald-500/20 border border-emerald-500' : `${tc.backgroundSecondary}`}`}
+                  onPress={() => setEmoji(e)}
+                >
+                  <Text style={tw`text-xl`}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Title */}
+            <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-xl px-4 mb-4`}>
               <TextInput
-                style={tw`${tc.inputText} text-lg py-3`}
-                placeholder="e.g. New Laptop, Trip to Goa"
-                placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                style={tw`${tc.inputText} py-3.5 text-base`}
+                placeholder="Goal name (e.g. New Laptop)"
+                placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                 value={title}
                 onChangeText={setTitle}
-                autoFocus
               />
             </View>
 
-            <Text style={tw`${tc.textSecondary} mb-2 font-medium ml-1`}>Target Amount</Text>
-            <View style={tw`${tc.inputBackground} rounded-2xl flex-row items-center px-4 py-2 border ${tc.borderSecondary} mb-8`}>
-              <Text style={tw`text-2xl text-emerald-500 font-bold mr-2`}>₹</Text>
+            {/* Amount */}
+            <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-xl flex-row items-center px-4 mb-6`}>
+              <Text style={tw`text-emerald-500 text-2xl font-bold mr-2`}>₹</Text>
               <TextInput
                 style={tw`flex-1 ${tc.inputText} text-2xl font-bold py-3`}
-                placeholder="0"
-                placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                placeholder="Target amount"
+                placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                 keyboardType="numeric"
-                value={targetAmount}
-                onChangeText={setTargetAmount}
+                value={target}
+                onChangeText={setTarget}
               />
             </View>
 
-            <TouchableOpacity 
-              style={tw`${!targetAmount || !title ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 items-center rounded-xl shadow-md ${!targetAmount || !title ? '' : 'shadow-emerald-500/30'}`}
-              onPress={handleCreateGoal}
-              disabled={!targetAmount || !title}
+            <TouchableOpacity
+              style={tw`${!target || !title ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 rounded-2xl items-center`}
+              onPress={handleCreate}
+              disabled={!target || !title}
             >
-              <Text style={tw`${!targetAmount || !title ? tc.textMuted : 'text-white'} font-bold text-lg`}>Create Goal</Text>
+              <Text style={tw`${!target || !title ? tc.textMuted : 'text-white'} font-bold text-base`}>Create Goal</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Add Funds Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={fundModalVisible}
-        onRequestClose={() => setFundModalVisible(false)}
-      >
+      {/* Fund Modal */}
+      <Modal animationType="slide" transparent visible={fundModal} onRequestClose={() => setFundModal(false)}>
         <View style={tw`flex-1 justify-end bg-black/60`}>
-          <View style={tw`${tc.backgroundCard} rounded-t-3xl p-6 border-t ${tc.borderMain} h-[60%]`}>
-            <View style={tw`flex-row justify-between items-center mb-6`}>
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
+            <View style={tw`flex-row justify-between items-center mb-2`}>
               <View>
-                <Text style={tw`text-2xl font-bold ${tc.textMain}`}>Fund Goal</Text>
-                <Text style={tw`${tc.textSecondary} mt-1`}>For {selectedGoal?.title}</Text>
+                <Text style={tw`${tc.textMain} text-xl font-bold`}>Fund Your Goal</Text>
+                <Text style={tw`${tc.textSecondary} text-sm mt-0.5`}>{selectedGoal?.title}</Text>
               </View>
-              <TouchableOpacity onPress={() => setFundModalVisible(false)} style={tw`${tc.backgroundSecondary} p-2 rounded-full`}>
-                <Ionicons name="close" size={24} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
+              <TouchableOpacity onPress={() => setFundModal(false)}>
+                <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
               </TouchableOpacity>
             </View>
 
-            <View style={tw`${tc.backgroundSecondary} border-l-4 border-emerald-500 p-4 rounded-xl mb-6 flex-row justify-between`}>
-              <Text style={tw`${tc.textSecondary} font-medium`}>Wallet Balance:</Text>
-              <Text style={tw`${tc.textMain} font-bold`}>₹{walletBalance.toLocaleString()}</Text>
+            <View style={tw`bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 my-4 flex-row items-center`}>
+              <Ionicons name="wallet-outline" size={16} color="#3B82F6" />
+              <Text style={tw`text-blue-400 text-sm font-medium ml-2`}>Wallet: ₹{walletBalance.toLocaleString()}</Text>
             </View>
-            
-            <Text style={tw`${tc.textSecondary} mb-2 font-medium ml-1`}>Amount to Add</Text>
-            <View style={tw`${tc.inputBackground} rounded-2xl flex-row items-center px-4 py-2 border ${tc.borderSecondary} mb-8`}>
-              <Text style={tw`text-2xl text-emerald-500 font-bold mr-2`}>₹</Text>
+
+            <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-xl flex-row items-center px-4 mb-6`}>
+              <Text style={tw`text-emerald-500 text-2xl font-bold mr-2`}>₹</Text>
               <TextInput
-                style={tw`flex-1 ${tc.inputText} text-2xl font-bold py-3`}
+                style={tw`flex-1 ${tc.inputText} text-2xl font-bold py-4`}
                 placeholder="0"
-                placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                 keyboardType="numeric"
                 value={fundAmount}
                 onChangeText={setFundAmount}
@@ -236,12 +251,12 @@ export const GoalsScreen = () => {
               />
             </View>
 
-            <TouchableOpacity 
-              style={tw`${!fundAmount ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 items-center rounded-xl shadow-md ${!fundAmount ? '' : 'shadow-emerald-500/30'}`}
-              onPress={handleFundGoal}
+            <TouchableOpacity
+              style={tw`${!fundAmount ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 rounded-2xl items-center`}
+              onPress={handleFund}
               disabled={!fundAmount}
             >
-              <Text style={tw`${!fundAmount ? tc.textMuted : 'text-white'} font-bold text-lg`}>Add to Goal</Text>
+              <Text style={tw`${!fundAmount ? tc.textMuted : 'text-white'} font-bold text-base`}>Add to Goal</Text>
             </TouchableOpacity>
           </View>
         </View>

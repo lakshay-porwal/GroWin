@@ -1,130 +1,156 @@
 import React, { useContext, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, TextInput, Modal, Image } from 'react-native';
+import {
+  View, Text, ScrollView, SafeAreaView, TouchableOpacity,
+  TextInput, Modal,
+} from 'react-native';
 import tw from 'twrnc';
 import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { getThemeClasses } from '../utils/theme';
 import { Header } from '../components/Header';
 
-export const WalletScreen = ({ navigation }: any) => {
-  const { walletBalance, transactions, addMoneyToWallet, theme } = useContext(AppContext);
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
+
+export const WalletScreen = () => {
+  const { walletBalance, transactions, addMoneyToWallet, investments, theme } = useContext(AppContext);
   const tc = getThemeClasses(theme);
-  
+  const isDark = theme === 'dark';
+
   const [modalVisible, setModalVisible] = useState(false);
   const [amount, setAmount] = useState('');
 
-  const handleAddMoney = () => {
-    const num = parseFloat(amount);
-    if (!isNaN(num) && num > 0) {
-      addMoneyToWallet(num);
+  const handleAdd = () => {
+    const n = parseFloat(amount);
+    if (!isNaN(n) && n > 0) {
+      addMoneyToWallet(n);
+      setAmount('');
+      setModalVisible(false);
     }
-    setAmount('');
-    setModalVisible(false);
   };
+
+  const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
+  const credits = transactions.filter(t => t.type === 'CREDIT').reduce((s, t) => s + t.amount, 0);
+  const debits = transactions.filter(t => t.type === 'DEBIT').reduce((s, t) => s + t.amount, 0);
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="My Wallet" showBack={true} />
-      <View style={tw`px-6 bg-transparent mt-4 relative overflow-hidden mb-6 h-48 rounded-3xl border border-emerald-500/50 shadow-lg justify-center`}>
-        <Image 
-          source={require('../../assets/wallet_card.png')} 
-          style={tw`absolute inset-0 w-full h-full`}
-          resizeMode="cover"
-        />
-        <View style={tw`absolute inset-0 bg-black/40`} />
-        <View style={tw`px-6 relative z-10 mt-2`}>
-          <Text style={tw`text-emerald-300 font-medium mb-1`}>Available Balance</Text>
-          <Text style={tw`text-4xl font-extrabold text-white mb-6`}>₹{walletBalance.toLocaleString()}</Text>
-          
-          <TouchableOpacity 
-            style={tw`bg-emerald-500 py-3 px-6 rounded-xl flex-row items-center justify-center self-start`}
+      <Header title="Wallet" subtitle="Manage your money" />
+
+      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+        {/* Balance card */}
+        <View style={tw`mx-5 mt-2 mb-5 bg-emerald-600 rounded-3xl p-6 overflow-hidden`}>
+          {/* Background blur circles */}
+          <View style={tw`absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10`} />
+          <View style={tw`absolute -left-4 -bottom-6 w-24 h-24 rounded-full bg-white/5`} />
+
+          <Text style={tw`text-emerald-100 text-xs font-semibold uppercase tracking-widest mb-1`}>Available Balance</Text>
+          <Text style={tw`text-white text-4xl font-extrabold mb-4`}>₹{walletBalance.toLocaleString()}</Text>
+
+          <TouchableOpacity
+            style={tw`bg-white/20 border border-white/30 self-start flex-row items-center px-5 py-2.5 rounded-xl`}
             onPress={() => setModalVisible(true)}
           >
-            <Ionicons name="add-circle" size={20} color="#fff" style={tw`mr-2`} />
-            <Text style={tw`text-white font-bold`}>Add Money</Text>
+            <Ionicons name="add-circle" size={18} color="#fff" />
+            <Text style={tw`text-white font-bold ml-2`}>Add Money</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={tw`flex-1 px-6`}>
-        <Text style={tw`${tc.textMain} font-bold text-xl mb-4`}>Transaction History</Text>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Stats Row */}
+        <View style={tw`mx-5 mb-5 flex-row`}>
+          {[
+            { label: 'Total Invested', val: `₹${totalInvested.toLocaleString()}`, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: 'trending-up' },
+            { label: 'Money In', val: `₹${credits.toLocaleString()}`, color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: 'arrow-down' },
+            { label: 'Money Out', val: `₹${debits.toLocaleString()}`, color: 'text-red-500', bg: 'bg-red-500/10', icon: 'arrow-up' },
+          ].map((s, i) => (
+            <View key={i} style={tw`flex-1 ${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-3 items-center mx-1`}>
+              <View style={tw`${s.bg} w-8 h-8 rounded-full items-center justify-center mb-1`}>
+                <Ionicons name={s.icon as any} size={14} color={s.color.replace('text-', '')} />
+              </View>
+              <Text style={tw`${s.color} font-bold text-xs`}>{s.val}</Text>
+              <Text style={tw`${tc.textMuted} text-[10px] mt-0.5 text-center`}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Transactions */}
+        <View style={tw`px-5 mb-8`}>
+          <Text style={tw`${tc.textMain} font-bold text-base mb-4`}>Transaction History</Text>
+
           {transactions.length === 0 ? (
-            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} p-8 rounded-2xl items-center shadow-sm shadow-black/5`}>
-              <Ionicons name="receipt-outline" size={48} color={theme === 'dark' ? '#4B5563' : '#9CA3AF'} style={tw`mb-4`} />
-              <Text style={tw`${tc.textSecondary} text-center`}>No transactions yet. Add money to your wallet to get started!</Text>
+            <View style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-8 items-center`}>
+              <Ionicons name="receipt-outline" size={44} color={isDark ? '#374151' : '#D1D5DB'} />
+              <Text style={tw`${tc.textSecondary} text-sm mt-2`}>No transactions yet</Text>
             </View>
           ) : (
-            transactions.map((tx) => (
-              <View key={tx.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} p-5 rounded-2xl mb-3 flex-row justify-between items-center shadow-sm shadow-black/5`}>
-                <View style={tw`flex-row items-center flex-1`}>
-                  <View style={tw`${tx.type === 'CREDIT' ? 'bg-emerald-500/20' : 'bg-red-500/20'} p-3 rounded-xl mr-4`}>
-                    <Ionicons name={tx.type === 'CREDIT' ? 'arrow-down' : 'arrow-up'} size={24} color={tx.type === 'CREDIT' ? '#10B981' : '#EF4444'} />
-                  </View>
-                  <View style={tw`flex-1 mr-2`}>
-                    <Text style={tw`${tc.textMain} font-medium text-base mb-1`} numberOfLines={1}>{tx.title}</Text>
-                    <Text style={tw`${tc.textMuted} text-xs`}>
-                      {new Date(tx.date).toLocaleDateString()} • {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
+            transactions.map(tx => (
+              <View key={tx.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}>
+                <View style={tw`${tx.type === 'CREDIT' ? 'bg-emerald-500/15' : 'bg-red-500/15'} w-11 h-11 rounded-xl items-center justify-center mr-3`}>
+                  <Ionicons
+                    name={tx.type === 'CREDIT' ? 'arrow-down' : 'arrow-up'}
+                    size={18}
+                    color={tx.type === 'CREDIT' ? '#10B981' : '#EF4444'}
+                  />
                 </View>
-                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-500' : tc.textMain} font-bold text-lg`}>
+                <View style={tw`flex-1`}>
+                  <Text style={tw`${tc.textMain} font-semibold text-sm`} numberOfLines={1}>{tx.title}</Text>
+                  <Text style={tw`${tc.textMuted} text-xs mt-0.5`}>
+                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {' · '}
+                    {new Date(tx.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+                <Text style={tw`${tx.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'} font-bold text-base`}>
                   {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
                 </Text>
               </View>
             ))
           )}
-          <View style={tw`h-10`} />
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
 
       {/* Add Money Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={tw`flex-1 justify-end bg-black/60`}>
-          <View style={tw`${tc.backgroundCard} rounded-t-3xl p-6 border-t ${tc.borderMain}`}>
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
             <View style={tw`flex-row justify-between items-center mb-6`}>
-              <Text style={tw`text-2xl font-bold ${tc.textMain}`}>Add Money</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={tw`${tc.backgroundSecondary} p-2 rounded-full`}>
-                <Ionicons name="close" size={24} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
+              <Text style={tw`${tc.textMain} text-xl font-bold`}>Add Money</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
               </TouchableOpacity>
             </View>
-            
-            <View style={tw`${tc.inputBackground} rounded-2xl flex-row items-center px-4 py-2 border ${tc.borderEmeraldTint} mb-6`}>
-              <Text style={tw`text-3xl text-emerald-500 font-bold mr-2`}>₹</Text>
+
+            <View style={tw`${tc.inputBackground} border ${tc.borderEmeraldTint} rounded-2xl flex-row items-center px-4 py-2 mb-5`}>
+              <Text style={tw`text-emerald-500 text-3xl font-bold mr-2`}>₹</Text>
               <TextInput
-                style={tw`flex-1 ${tc.inputText} text-3xl font-bold py-4`}
+                style={tw`flex-1 ${tc.inputText} text-3xl font-bold py-3`}
                 placeholder="0"
-                placeholderTextColor={theme === 'dark' ? '#4B5563' : '#9CA3AF'}
+                placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
                 autoFocus
               />
             </View>
-            
-            <View style={tw`flex-row gap-3 mb-6`}>
-              {[500, 1000, 5000].map(val => (
-                <TouchableOpacity 
-                  key={val}
-                  style={tw`flex-1 ${tc.backgroundSecondary} border ${tc.borderSecondary} p-3 rounded-xl items-center`}
-                  onPress={() => setAmount(val.toString())}
+
+            {/* Quick amounts */}
+            <View style={tw`flex-row mb-6`}>
+              {QUICK_AMOUNTS.map(v => (
+                <TouchableOpacity
+                  key={v}
+                  style={tw`flex-1 ${tc.backgroundSecondary} border ${tc.borderSecondary} py-2.5 rounded-xl items-center mx-1`}
+                  onPress={() => setAmount(v.toString())}
                 >
-                  <Text style={tw`${tc.textMain} font-medium`}>+₹{val}</Text>
+                  <Text style={tw`${tc.textMain} font-medium text-xs`}>+₹{v >= 1000 ? `${v / 1000}K` : v}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <TouchableOpacity 
-              style={tw`bg-emerald-500 py-4 items-center rounded-xl shadow-md shadow-emerald-500/30`}
-              onPress={handleAddMoney}
+            <TouchableOpacity
+              style={tw`bg-emerald-500 py-4 items-center rounded-2xl shadow-lg shadow-emerald-500/30`}
+              onPress={handleAdd}
               activeOpacity={0.8}
             >
-              <Text style={tw`text-white font-bold text-lg`}>Add to Wallet</Text>
+              <Text style={tw`text-white font-bold text-base`}>Add to Wallet</Text>
             </TouchableOpacity>
           </View>
         </View>
