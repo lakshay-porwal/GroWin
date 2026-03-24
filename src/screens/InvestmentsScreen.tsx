@@ -37,15 +37,19 @@ const RISK_CFG = {
 const TypeIcon: Record<string, any> = { MF: 'briefcase', SIP: 'calendar', ETF: 'bar-chart' };
 
 export const InvestmentsScreen = () => {
-  const { addInvestment, walletBalance, currentUser, funds, theme, investments, lastPLUpdate } = useContext(AppContext);
+  const { addInvestment, walletBalance, currentUser, funds, theme, investments } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const isDark = theme === 'dark';
 
   const [activeTab, setActiveTab] = useState<'ALL' | 'MF' | 'SIP' | 'ETF'>('ALL');
+  const [selectedRisk, setSelectedRisk] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [selectedFund, setSelectedFund] = useState<Omit<Investment, 'id' | 'currentValue'> | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailFund, setDetailFund] = useState<Omit<Investment, 'id' | 'currentValue'> | null>(null);
 
   const approvedFunds: Omit<Investment, 'id' | 'currentValue'>[] = funds
     .filter(f => f.status === 'APPROVED')
@@ -54,7 +58,8 @@ export const InvestmentsScreen = () => {
   const allFunds = [...approvedFunds, ...BASE_FUNDS];
   const userRisk = currentUser?.riskProfile;
 
-  const filteredFunds = activeTab === 'ALL' ? allFunds : allFunds.filter(f => f.type === activeTab);
+  const filteredFunds = (activeTab === 'ALL' ? allFunds : allFunds.filter(f => f.type === activeTab))
+    .filter(f => selectedRisk === 'ALL' || f.riskLevel === selectedRisk);
   const suggestedFunds = userRisk ? allFunds.filter(f => f.riskLevel === userRisk).slice(0, 3) : [];
   const isAuthorityFund = (t: string) => approvedFunds.some(f => f.title === t);
 
@@ -83,7 +88,11 @@ export const InvestmentsScreen = () => {
     const rc = RISK_CFG[fund.riskLevel];
     const authority = isAuthorityFund(fund.title);
     return (
-      <View style={tw`${tc.backgroundCard} border ${highlight ? 'border-emerald-500/60' : tc.borderMain} rounded-2xl p-4 mb-3`}>
+      <TouchableOpacity 
+        style={tw`${tc.backgroundCard} border ${highlight ? 'border-emerald-500/60' : tc.borderMain} rounded-2xl p-4 mb-3`}
+        activeOpacity={0.8}
+        onPress={() => { setDetailFund(fund); setDetailModalVisible(true); }}
+      >
         {/* Tags */}
         <View style={tw`flex-row mb-3 flex-wrap`}>
           {highlight && (
@@ -135,13 +144,13 @@ export const InvestmentsScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="Invest" subtitle="Curated for your risk profile" />
+      <Header title="Invest" subtitle="Curated for your risk profile" showBack={false} />
 
       {/* Risk profile chip */}
       {userRisk && (
@@ -168,12 +177,34 @@ export const InvestmentsScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
-        {lastPLUpdate && (
-          <View style={tw`flex-row items-center`}>
-            <Ionicons name="sync-circle" size={11} color="#10B981" />
-            <Text style={tw`text-emerald-500 text-[10px] font-semibold ml-1`}>
-              {new Date(lastPLUpdate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+      </View>
+
+      {/* Risk Dropdown */}
+      <View style={tw`px-5 mb-3`}>
+        <TouchableOpacity
+          style={tw`flex-row justify-between items-center ${tc.backgroundCard} border ${tc.borderMain} px-4 py-2.5 rounded-xl`}
+          onPress={() => setDropdownOpen(!dropdownOpen)}
+          activeOpacity={0.7}
+        >
+          <Text style={tw`${tc.textMain} font-semibold text-xs`}>
+            Risk Level: <Text style={tw`${selectedRisk !== 'ALL' ? 'text-emerald-500 font-bold' : ''}`}>{selectedRisk === 'ALL' ? 'Any' : selectedRisk}</Text>
+          </Text>
+          <Ionicons name={dropdownOpen ? 'chevron-up' : 'chevron-down'} size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
+        </TouchableOpacity>
+
+        {dropdownOpen && (
+          <View style={tw`mt-1 ${tc.backgroundCard} border ${tc.borderMain} rounded-xl overflow-hidden`}>
+            {['ALL', 'LOW', 'MEDIUM', 'HIGH'].map((risk, i) => (
+              <TouchableOpacity
+                key={risk}
+                style={tw`px-4 py-3 ${i > 0 ? `border-t ${tc.borderMain}` : ''}`}
+                onPress={() => { setSelectedRisk(risk as any); setDropdownOpen(false); }}
+              >
+                <Text style={tw`${tc.textMain} text-xs font-medium ${selectedRisk === risk ? 'text-emerald-500 font-bold' : ''}`}>
+                  {risk === 'ALL' ? 'Any Risk' : `${risk} Risk`}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </View>
@@ -201,11 +232,6 @@ export const InvestmentsScreen = () => {
               <View style={tw`items-end`}>
                 <Text style={tw`${tc.textMuted} text-[10px]`}>{investments.length} holding{investments.length !== 1 ? 's' : ''}</Text>
                 <Text style={tw`${tc.textMuted} text-[10px] mt-0.5`}>Invested ₹{totalInvested.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
-                {lastPLUpdate && (
-                  <Text style={tw`text-emerald-500 text-[10px] mt-1`}>
-                    Live as of {new Date(lastPLUpdate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                )}
               </View>
             </View>
           );
@@ -236,8 +262,9 @@ export const InvestmentsScreen = () => {
       {/* AI Modal */}
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={tw`flex-1 justify-end bg-black/60`}>
-          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
-            <View style={tw`flex-row justify-between items-center mb-4`}>
+          <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} max-h-[85%]`}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={tw`p-6`}>
+              <View style={tw`flex-row justify-between items-center mb-4`}>
               <View style={tw`flex-row items-center`}>
                 <View style={tw`bg-emerald-500 w-8 h-8 rounded-full items-center justify-center mr-2`}>
                   <Ionicons name="hardware-chip" size={16} color="#fff" />
@@ -263,13 +290,65 @@ export const InvestmentsScreen = () => {
             )}
 
             <TouchableOpacity
-              style={tw`${tc.backgroundSecondary} py-3 rounded-xl items-center`}
+              style={tw`${tc.backgroundSecondary} py-3 rounded-xl items-center mt-4`}
               onPress={() => setModalVisible(false)}
             >
               <Text style={tw`${tc.textMain} font-bold`}>Close</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      {/* Fund Detail Modal */}
+      <Modal animationType="slide" transparent visible={detailModalVisible} onRequestClose={() => setDetailModalVisible(false)}>
+        {detailFund && (
+          <View style={tw`flex-1 justify-end bg-black/60`}>
+            <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6 pb-8`}>
+              <View style={tw`flex-row justify-between items-start mb-4`}>
+                <View style={tw`flex-1 mr-3`}>
+                  <Text style={tw`${tc.textMain} text-xl font-bold`}>{detailFund.title}</Text>
+                  <Text style={tw`${tc.textSecondary} text-xs mt-1`}>{detailFund.type} · {detailFund.riskLevel} Risk</Text>
+                </View>
+                <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                  <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={tw`flex-row flex-wrap mb-5 bg-${isDark ? 'gray-800' : 'gray-100'} p-4 rounded-2xl`}>
+                {[
+                  { label: 'Minimum', value: `₹${detailFund.amount.toLocaleString()}` },
+                  { label: 'Returns', value: detailFund.expectedReturn },
+                  { label: 'Risk', value: detailFund.riskLevel },
+                  { label: 'Category', value: detailFund.type },
+                ].map((item, i) => (
+                  <View key={i} style={tw`w-1/2 mb-${i < 2 ? '4' : '0'}`}>
+                    <Text style={tw`${tc.textMuted} text-[10px] uppercase tracking-wider mb-1`}>{item.label}</Text>
+                    <Text style={tw`${tc.textMain} font-bold text-sm`}>{item.value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={tw`flex-row mb-2 mt-2`}>
+                <TouchableOpacity
+                  style={tw`flex-1 border border-emerald-500/40 py-3.5 rounded-xl items-center flex-row justify-center mr-2`}
+                  onPress={() => { setDetailModalVisible(false); setTimeout(() => openAI(detailFund), 300); }}
+                >
+                  <Ionicons name="hardware-chip-outline" size={16} color="#10B981" />
+                  <Text style={tw`text-emerald-500 font-bold ml-1 text-sm`}>AI Report</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={tw`flex-1 bg-emerald-500 py-3.5 rounded-xl items-center shadow-lg shadow-emerald-500/30`}
+                  onPress={() => { setDetailModalVisible(false); handleInvest(detailFund); }}
+                >
+                  <Text style={tw`text-white font-bold text-sm`}>
+                    {detailFund.type === 'SIP' ? '▶ Start SIP' : '+ Invest Now'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </Modal>
     </SafeAreaView>
   );

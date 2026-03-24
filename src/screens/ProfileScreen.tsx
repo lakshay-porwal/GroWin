@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, Platform
+  TextInput, Modal, Alert, Platform, KeyboardAvoidingView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
@@ -218,7 +218,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
       {/* Edit Name Modal */}
       <Modal animationType="slide" transparent visible={editModal} onRequestClose={() => setEditModal(false)}>
-        <View style={tw`flex-1 justify-end bg-black/60`}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1 justify-end bg-black/60`}>
           <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
             <View style={tw`flex-row justify-between items-center mb-5`}>
               <Text style={tw`${tc.textMain} text-lg font-bold`}>Edit Name</Text>
@@ -247,7 +247,7 @@ export const ProfileScreen = ({ navigation }: any) => {
               <Text style={tw`text-white font-bold text-base`}>{saving ? 'Saving...' : 'Save Changes'}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

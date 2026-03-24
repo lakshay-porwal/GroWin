@@ -97,7 +97,7 @@ export const LoginScreen = () => {
 
     let result: { success: boolean; message: string };
     if (mode === 'login') {
-      result = await loginUser(email.trim(), password);
+      result = await loginUser(email.trim(), password, role);
     } else {
       result = await register(name.trim(), email.trim(), password, role);
     }
@@ -205,24 +205,24 @@ export const LoginScreen = () => {
           />
 
           {/* Role selector */}
-          {mode === 'register' && (
-            <View style={tw`mb-5`}>
-              <Text style={tw`text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2.5 mt-1`}>I am a...</Text>
-              <View style={tw`flex-row`}>
-                {ROLES.map(r => (
-                  <TouchableOpacity
-                    key={r.value}
-                    style={tw`flex-1 mx-0.5 p-3 rounded-2xl border ${role === r.value ? r.activeStyle : 'border-gray-700 bg-gray-800'} items-center`}
-                    onPress={() => setRole(r.value)}
-                  >
-                    <Text style={tw`text-2xl mb-1`}>{r.icon}</Text>
-                    <Text style={tw`font-bold text-xs ${role === r.value ? r.activeText : 'text-gray-500'}`}>{r.label}</Text>
-                    <Text style={tw`text-gray-600 text-[9px] text-center mt-0.5 leading-3`}>{r.desc}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          <View style={tw`mb-5`}>
+            <Text style={tw`text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2.5 mt-1`}>
+              {mode === 'login' ? 'Login as...' : 'I am a...'}
+            </Text>
+            <View style={tw`flex-row`}>
+              {ROLES.map(r => (
+                <TouchableOpacity
+                  key={r.value}
+                  style={tw`flex-1 mx-0.5 p-3 rounded-2xl border ${role === r.value ? r.activeStyle : 'border-gray-700 bg-gray-800'} items-center`}
+                  onPress={() => setRole(r.value)}
+                >
+                  <Text style={tw`text-2xl mb-1`}>{r.icon}</Text>
+                  <Text style={tw`font-bold text-xs ${role === r.value ? r.activeText : 'text-gray-500'}`}>{r.label}</Text>
+                  <Text style={tw`text-gray-600 text-[9px] text-center mt-0.5 leading-3`}>{r.desc}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
+          </View>
 
           {/* Submit */}
           <TouchableOpacity

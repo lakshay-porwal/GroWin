@@ -96,9 +96,9 @@ export const AdminScreen = ({ navigation }: any) => {
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
       {/* Header */}
       <View style={tw`px-6 py-4 flex-row justify-between items-center border-b ${tc.borderMain}`}>
-        <View>
-          <Text style={tw`text-2xl font-extrabold ${tc.textMain}`}>🛡️ Admin Panel</Text>
-          <Text style={tw`${tc.textSecondary} text-xs mt-0.5`}>Welcome, {currentUser?.name}</Text>
+        <View style={tw`flex-1 mr-3`}>
+          <Text style={tw`text-2xl font-extrabold ${tc.textMain}`} numberOfLines={1}>🛡️ Admin Panel</Text>
+          <Text style={tw`${tc.textSecondary} text-xs mt-0.5`} numberOfLines={1}>Welcome, {currentUser?.name}</Text>
         </View>
         <View style={tw`flex-row items-center`}>
           {pendingFunds.length > 0 && (
@@ -236,8 +236,9 @@ export const AdminScreen = ({ navigation }: any) => {
       <Modal visible={!!selectedFund} transparent animationType="slide" onRequestClose={() => setSelectedFund(null)}>
         {selectedFund && (
           <View style={tw`flex-1 justify-end bg-black/60`}>
-            <View style={tw`${tc.backgroundCard} rounded-t-3xl p-6 border-t ${tc.borderMain}`}>
-              <View style={tw`flex-row justify-between items-start mb-4`}>
+            <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} max-h-[85%]`}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={tw`p-6`}>
+                <View style={tw`flex-row justify-between items-start mb-4`}>
                 <View style={tw`flex-1 mr-3`}>
                   <Text style={tw`${tc.textMain} text-xl font-bold`}>{selectedFund.title}</Text>
                   <Text style={tw`${tc.textSecondary} text-xs mt-1`}>Submitted by {selectedFund.submittedByName}</Text>
@@ -286,6 +287,7 @@ export const AdminScreen = ({ navigation }: any) => {
                   </TouchableOpacity>
                 </View>
               )}
+            </ScrollView>
             </View>
           </View>
         )}

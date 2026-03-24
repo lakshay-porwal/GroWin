@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, Modal, Dimensions,
+  TextInput, Modal, Dimensions, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
@@ -37,12 +37,28 @@ export const ExpenseScreen = () => {
   const isDark = theme === 'dark';
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'ALL' | 'MONTH' | 'WEEK'>('MONTH');
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const budget = walletBalance + total;
+  const filteredExpenses = expenses.filter(e => {
+    if (activeTab === 'ALL') return true;
+    const expDate = new Date(e.date);
+    const now = new Date();
+    if (activeTab === 'MONTH') {
+      return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear();
+    }
+    if (activeTab === 'WEEK') {
+      const msInWeek = 7 * 24 * 60 * 60 * 1000;
+      return (now.getTime() - expDate.getTime()) <= msInWeek;
+    }
+    return true;
+  });
+
+  const total = filteredExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalAllTime = expenses.reduce((s, e) => s + e.amount, 0);
+  const budget = walletBalance + totalAllTime;
   const budgetUsedPct = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
 
   const handleAdd = () => {
@@ -56,7 +72,7 @@ export const ExpenseScreen = () => {
 
   const chartData = CATEGORIES.map(cat => ({
     name: cat,
-    population: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
+    population: filteredExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
     color: CATEGORY_COLORS[cat],
     legendFontColor: isDark ? '#9CA3AF' : '#6B7280',
     legendFontSize: 11,
@@ -64,7 +80,22 @@ export const ExpenseScreen = () => {
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="Expenses" subtitle="Track every rupee" />
+      <Header title="Expenses" subtitle="Track every rupee" showBack={false} />
+
+      {/* Time Filter Tabs */}
+      <View style={tw`flex-row px-5 mb-3 mt-1`}>
+        {(['ALL', 'MONTH', 'WEEK'] as const).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={tw`mr-2 px-4 py-2 rounded-full border ${activeTab === tab ? 'border-emerald-500 bg-emerald-500/15' : `border-transparent ${tc.backgroundSecondary}`}`}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={tw`font-bold text-xs ${activeTab === tab ? 'text-emerald-500' : tc.textMuted}`}>
+              {tab === 'ALL' ? 'All Time' : tab === 'MONTH' ? 'This Month' : 'This Week'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
         {/* Summary Card */}
@@ -139,16 +170,16 @@ export const ExpenseScreen = () => {
         {/* Expense List */}
         <View style={tw`px-5 mb-8`}>
           <Text style={tw`${tc.textMain} font-bold text-base mb-3`}>
-            All Expenses <Text style={tw`${tc.textMuted} font-normal text-sm`}>({expenses.length})</Text>
+            {activeTab === 'ALL' ? 'All' : activeTab === 'MONTH' ? 'Monthly' : 'Weekly'} Expenses <Text style={tw`${tc.textMuted} font-normal text-sm`}>({filteredExpenses.length})</Text>
           </Text>
 
-          {expenses.length === 0 ? (
+          {filteredExpenses.length === 0 ? (
             <View style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-8 items-center`}>
               <Text style={tw`text-3xl mb-2`}>💸</Text>
               <Text style={tw`${tc.textSecondary} text-sm`}>No expenses recorded yet.</Text>
             </View>
           ) : (
-            expenses.slice().reverse().map(exp => (
+            filteredExpenses.slice().reverse().map(exp => (
               <View key={exp.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}>
                 <View style={[tw`w-11 h-11 rounded-xl items-center justify-center mr-3`, { backgroundColor: CATEGORY_COLORS[exp.category] + '22' }]}>
                   <Ionicons name={CAT_ICONS[exp.category] as any} size={20} color={CATEGORY_COLORS[exp.category]} />
@@ -168,7 +199,7 @@ export const ExpenseScreen = () => {
 
       {/* Add Expense Modal */}
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <View style={tw`flex-1 justify-end bg-black/60`}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1 justify-end bg-black/60`}>
           <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} max-h-[85%]`}>
             <ScrollView contentContainerStyle={tw`p-6`} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View style={tw`flex-row justify-between items-center mb-6`}>
@@ -236,7 +267,7 @@ export const ExpenseScreen = () => {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

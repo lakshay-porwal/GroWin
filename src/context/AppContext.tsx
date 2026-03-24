@@ -1,7 +1,21 @@
 import React, { createContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Updates from 'expo-updates';
 import { AppState, AppUser, UserRole, RiskProfile, Expense, Investment, Fund, Goal, Transaction } from '../types';
 
+// ─── App Reloader Helper ───────────────────────────────────────────────────────
+const reloadApp = async () => {
+  try {
+    if (Platform.OS === 'web') {
+      window.location.reload();
+    } else {
+      await Updates.reloadAsync();
+    }
+  } catch (e) {
+    console.warn('Reload not supported', e);
+  }
+};
 // ─── Storage Keys ──────────────────────────────────────────────────────────────
 const KEYS = {
   USERS: '@growin:users',
@@ -49,15 +63,19 @@ interface AppContextProps extends AppState {
   lastPLUpdate: string | null;
   // Auth
   register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; message: string }>;
-  loginUser: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginUser: (email: string, password: string, role: UserRole) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   setRiskProfile: (profile: RiskProfile) => Promise<void>;
   updateProfile: (name: string) => Promise<void>;
   // Student
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   addInvestment: (investment: Omit<Investment, 'id' | 'currentValue'>) => void;
+  addMoneyToInvestment: (id: string, amount: number) => { success: boolean; message: string };
+  sellInvestment: (id: string) => void;
   addGoal: (goal: Omit<Goal, 'id' | 'savedAmount'>) => void;
   updateGoal: (id: string, amount: number) => void;
+  editGoal: (id: string, updates: Partial<Omit<Goal, 'id'>>) => void;
+  removeGoal: (id: string) => void;
   addMoneyToWallet: (amount: number) => void;
   withdrawMoneyFromWallet: (amount: number) => { success: boolean; message: string };
   // Authority
@@ -78,8 +96,8 @@ export const AppContext = createContext<AppContextProps>({
   logout: async () => {},
   setRiskProfile: async () => {},
   updateProfile: async () => {},
-  addExpense: () => {}, addInvestment: () => {}, addGoal: () => {},
-  updateGoal: () => {}, addMoneyToWallet: () => {}, withdrawMoneyFromWallet: () => ({ success: false, message: '' }),
+  addExpense: () => {}, addInvestment: () => {}, addMoneyToInvestment: () => ({ success: false, message: '' }), sellInvestment: () => {}, addGoal: () => {},
+  updateGoal: () => {}, editGoal: () => {}, removeGoal: () => {}, addMoneyToWallet: () => {}, withdrawMoneyFromWallet: () => ({ success: false, message: '' }),
   submitFund: () => {}, approveFund: () => {}, rejectFund: () => {},
   toggleTheme: () => {},
 });
@@ -221,18 +239,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await saveUsers(newUsers);
     await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, newUser.id);
     await saveUserData(newUser.id, EMPTY_USER_DATA);
+    
+    setTimeout(() => reloadApp(), 500);
     return { success: true, message: `Welcome to GroWin, ${newUser.name}! 🎉` };
   };
 
-  const loginUser = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const loginUser = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; message: string }> => {
     const user = users.find(
       u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
     );
     if (!user) return { success: false, message: 'Incorrect email or password. Please try again.' };
+    if (user.role !== role) {
+      return { success: false, message: `This account is not registered as a ${role}.` };
+    }
+    
     setCurrentUser(user);
     const rawUD = await AsyncStorage.getItem(KEYS.USER_DATA(user.id));
     setUserData(rawUD ? JSON.parse(rawUD) : EMPTY_USER_DATA);
     await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, user.id);
+    
+    setTimeout(() => reloadApp(), 500);
     return { success: true, message: `Welcome back, ${user.name}! 👋` };
   };
 
@@ -241,6 +267,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(null);
     setUserData(EMPTY_USER_DATA);
     await AsyncStorage.removeItem(KEYS.CURRENT_USER_ID);
+    
+    setTimeout(() => reloadApp(), 500);
   };
 
   const setRiskProfile = async (profile: RiskProfile) => {
@@ -250,6 +278,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(updated);
     setUsers(newUsers);
     await saveUsers(newUsers);
+    
+    setTimeout(() => reloadApp(), 500);
   };
 
   const updateProfile = async (name: string) => {
@@ -259,6 +289,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(updated);
     setUsers(newUsers);
     await saveUsers(newUsers);
+
+    setTimeout(() => reloadApp(), 500);
   };
 
   // ── Student Actions ─────────────────────────────────────────────────────────
@@ -284,19 +316,71 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const addMoneyToInvestment = (id: string, amount: number) => {
+    if (userData.walletBalance < amount) {
+      return { success: false, message: 'Insufficient Balance' };
+    }
+    const newTx: Transaction = { id: Date.now().toString(), type: 'DEBIT', amount, title: 'Added Funds to Investment', date: new Date().toISOString() };
+    setUserData(prev => ({
+      ...prev,
+      walletBalance: prev.walletBalance - amount,
+      investments: prev.investments.map(i => i.id === id ? { ...i, amount: i.amount + amount, currentValue: i.currentValue + amount } : i),
+      transactions: [newTx, ...prev.transactions],
+    }));
+    return { success: true, message: 'Funds added successfully' };
+  };
+
+  const sellInvestment = (id: string) => {
+    setUserData(prev => {
+      const inv = prev.investments.find(i => i.id === id);
+      const saleValue = inv ? inv.currentValue : 0;
+      const updates: Partial<typeof prev> = { investments: prev.investments.filter(i => i.id !== id) };
+      
+      if (saleValue > 0) {
+        updates.walletBalance = prev.walletBalance + saleValue;
+        const newTx: Transaction = { id: Date.now().toString(), type: 'CREDIT', amount: saleValue, title: `Sold: ${inv!.title}`, date: new Date().toISOString() };
+        updates.transactions = [newTx, ...prev.transactions];
+      }
+      return { ...prev, ...updates };
+    });
+  };
+
   const addGoal = (goal: Omit<Goal, 'id' | 'savedAmount'>) => {
     const newGoal: Goal = { ...goal, id: Date.now().toString(), savedAmount: 0 };
     setUserData(prev => ({ ...prev, goals: [...prev.goals, newGoal] }));
   };
 
   const updateGoal = (id: string, amount: number) => {
+    if (userData.walletBalance < amount) return;
     const newTx: Transaction = { id: Date.now().toString(), type: 'DEBIT', amount, title: 'Added to Savings Goal', date: new Date().toISOString() };
     setUserData(prev => ({
       ...prev,
-      goals: prev.goals.map(g => g.id === id ? { ...g, savedAmount: g.savedAmount + amount } : g),
       walletBalance: prev.walletBalance - amount,
+      goals: prev.goals.map(g => g.id === id ? { ...g, savedAmount: g.savedAmount + amount } : g),
       transactions: [newTx, ...prev.transactions],
     }));
+  };
+
+  const editGoal = (id: string, updates: Partial<Omit<Goal, 'id'>>) => {
+    setUserData(prev => ({
+      ...prev,
+      goals: prev.goals.map(g => g.id === id ? { ...g, ...updates } : g),
+    }));
+  };
+
+  const removeGoal = (id: string) => {
+    setUserData(prev => {
+      const goalToRemove = prev.goals.find(g => g.id === id);
+      const refundedAmount = goalToRemove ? goalToRemove.savedAmount : 0;
+      const updates: Partial<typeof prev> = { goals: prev.goals.filter(g => g.id !== id) };
+      
+      if (refundedAmount > 0) {
+        updates.walletBalance = prev.walletBalance + refundedAmount;
+        const refundTx: Transaction = { id: Date.now().toString(), type: 'CREDIT', amount: refundedAmount, title: `Refund: ${goalToRemove!.title}`, date: new Date().toISOString() };
+        updates.transactions = [refundTx, ...prev.transactions];
+      }
+      return { ...prev, ...updates };
+    });
   };
 
   const addMoneyToWallet = (amount: number) => {
@@ -375,7 +459,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         lastPLUpdate: userData.lastPLUpdate,
         register, loginUser, logout,
         setRiskProfile, updateProfile,
-        addExpense, addInvestment, addGoal, updateGoal, addMoneyToWallet, withdrawMoneyFromWallet,
+        addExpense,
+        addInvestment,
+        addMoneyToInvestment,
+        sellInvestment,
+        addGoal,
+        updateGoal,
+        editGoal,
+        removeGoal,
+        addMoneyToWallet,
+        withdrawMoneyFromWallet,
         submitFund, approveFund, rejectFund,
         toggleTheme,
       }}

@@ -102,9 +102,9 @@ export const AuthorityScreen = ({ navigation }: any) => {
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
       {/* Header */}
       <View style={tw`px-6 py-4 flex-row justify-between items-center border-b ${tc.borderMain}`}>
-        <View>
-          <Text style={tw`text-2xl font-extrabold ${tc.textMain}`}>🏛️ Authority Panel</Text>
-          <Text style={tw`${tc.textSecondary} text-xs mt-0.5`}>{currentUser?.name}</Text>
+        <View style={tw`flex-1 mr-3`}>
+          <Text style={tw`text-2xl font-extrabold ${tc.textMain}`} numberOfLines={1}>🏛️ Authority Panel</Text>
+          <Text style={tw`${tc.textSecondary} text-xs mt-0.5`} numberOfLines={1}>{currentUser?.name}</Text>
         </View>
         <View style={tw`flex-row items-center`}>
           <TouchableOpacity

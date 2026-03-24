@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  TextInput, Modal,
+  TextInput, Modal, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
@@ -51,7 +51,7 @@ export const WalletScreen = () => {
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="Wallet" subtitle="Manage your money" />
+      <Header title="Wallet" subtitle="Manage your funds securely" showBack={false} />
 
       <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
         {/* Balance card */}
@@ -136,7 +136,7 @@ export const WalletScreen = () => {
 
       {/* Add Money Modal */}
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <View style={tw`flex-1 justify-end bg-black/60`}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1 justify-end bg-black/60`}>
           <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
             <View style={tw`flex-row justify-between items-center mb-6`}>
               <Text style={tw`${tc.textMain} text-xl font-bold`}>Add Money</Text>
@@ -179,12 +179,12 @@ export const WalletScreen = () => {
               <Text style={tw`text-white font-bold text-base`}>Add to Wallet</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Withdraw Modal */}
       <Modal animationType="slide" transparent visible={withdrawVisible} onRequestClose={() => setWithdrawVisible(false)}>
-        <View style={tw`flex-1 justify-end bg-black/60`}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1 justify-end bg-black/60`}>
           <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
             <View style={tw`flex-row justify-between items-center mb-6`}>
               <View>
@@ -239,7 +239,7 @@ export const WalletScreen = () => {
               <Text style={tw`${!withdrawAmount ? tc.textMuted : 'text-white'} font-bold text-base`}>Withdraw</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -13,7 +13,7 @@ interface HeaderProps {
   showAI?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, showBack = false, showAI = true }) => {
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, showBack, showAI = true }) => {
   const { theme, toggleTheme, currentUser, logout } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const navigation = useNavigation<any>();
@@ -22,17 +22,18 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, showBack = fals
   return (
     <View style={tw`flex-row justify-between items-center px-5 py-3.5 ${tc.backgroundMain}`}>
       <View style={tw`flex-row items-center flex-1`}>
-        {showBack && (
+        {(showBack ?? navigation.canGoBack()) && (
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={tw`w-9 h-9 items-center justify-center rounded-full ${tc.backgroundCard} border ${tc.borderMain} mr-3`}
+            style={tw`w-9 h-9 items-center justify-center rounded-full ${tc.backgroundCard} border ${tc.borderMain} mr-3 shadow-sm`}
+            activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={20} color={isDark ? '#fff' : '#111'} />
           </TouchableOpacity>
         )}
         <View>
-          <Text style={tw`text-xl font-extrabold ${tc.textMain} tracking-tight`}>{title}</Text>
-          {subtitle && <Text style={tw`${tc.textSecondary} text-xs mt-0.5`}>{subtitle}</Text>}
+          <Text style={tw`text-xl font-extrabold ${tc.textMain} tracking-tight`} numberOfLines={1}>{title}</Text>
+          {subtitle && <Text style={tw`${tc.textSecondary} text-xs mt-0.5`} numberOfLines={1}>{subtitle}</Text>}
         </View>
       </View>
 

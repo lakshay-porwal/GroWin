@@ -74,7 +74,7 @@ export const OnboardingScreen = () => {
     const cfg = PROFILE_RESULT[result];
     return (
       <SafeAreaView style={tw`flex-1 bg-gray-950`}>
-        <View style={tw`flex-1 px-6 items-center justify-center`}>
+        <ScrollView contentContainerStyle={tw`flex-grow px-6 items-center justify-center py-6`} showsVerticalScrollIndicator={false}>
           <View style={tw`${cfg.bg} border ${cfg.border} w-24 h-24 rounded-full items-center justify-center mb-6`}>
             <Text style={tw`text-5xl`}>{cfg.icon}</Text>
           </View>
@@ -104,7 +104,7 @@ export const OnboardingScreen = () => {
               : <Text style={tw`text-white font-extrabold text-base`}>Start Investing 🎯</Text>
             }
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -112,7 +112,7 @@ export const OnboardingScreen = () => {
   // — Quiz screen
   return (
     <SafeAreaView style={tw`flex-1 bg-gray-950`}>
-      <View style={tw`px-6 pt-4 flex-1`}>
+      <ScrollView contentContainerStyle={tw`flex-grow px-6 pt-4 pb-8`} showsVerticalScrollIndicator={false}>
         {/* Progress */}
         <View style={tw`mb-6`}>
           <View style={tw`flex-row justify-between items-center mb-2`}>
@@ -160,7 +160,7 @@ export const OnboardingScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

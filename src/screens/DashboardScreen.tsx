@@ -1,6 +1,6 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Dimensions,
+  View, Text, ScrollView, TouchableOpacity, Dimensions, Modal, TextInput, KeyboardAvoidingView, Platform, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getThemeClasses } from '../utils/theme';
 import { Header } from '../components/Header';
 import { LineChart } from 'react-native-chart-kit';
+import { Investment } from '../types';
 
 const W = Dimensions.get('window').width;
 
@@ -16,9 +17,13 @@ const W = Dimensions.get('window').width;
 const SPARKLINE = [12200, 12800, 12400, 13100, 12900, 13500, 13200, 14000, 13800, 14500, 14200, 15000];
 
 export const DashboardScreen = ({ navigation }: any) => {
-  const { currentUser, walletBalance, investments, expenses, transactions, theme } = useContext(AppContext);
+  const { currentUser, walletBalance, investments, expenses, transactions, theme, addMoneyToInvestment, sellInvestment } = useContext(AppContext);
   const tc = getThemeClasses(theme);
   const isDark = theme === 'dark';
+
+  const [manageModal, setManageModal] = useState(false);
+  const [selectedInv, setSelectedInv] = useState<Investment | null>(null);
+  const [addAmount, setAddAmount] = useState('');
 
   const totalInvested = investments.reduce((s, i) => s + i.amount, 0);
   const totalCurrentValue = investments.reduce((s, i) => s + i.currentValue, 0);
@@ -33,6 +38,46 @@ export const DashboardScreen = ({ navigation }: any) => {
     if (currentUser.riskProfile === 'LOW') return "💡 Safe pick: ₹500/mo in Debt Fund. Capital-protected, 7-9% returns.";
     if (currentUser.riskProfile === 'MEDIUM') return "💡 Balanced pick: ₹1000/mo in Nifty Index Fund. Steady 10-12% p.a.";
     return "💡 Power move: Allocate 20% of balance to Small-Cap MF for 15-18% potential.";
+  };
+
+  const handleAddFunds = () => {
+    if (!selectedInv || !addAmount) return;
+    const n = parseFloat(addAmount);
+    if (!isNaN(n) && n > 0) {
+      const res = addMoneyToInvestment(selectedInv.id, n);
+      if (res.success) {
+        setAddAmount('');
+        setManageModal(false);
+        if (Platform.OS === 'web') window.alert(`✅ Added ₹${n.toLocaleString()} to ${selectedInv.title}`);
+        else Alert.alert('✅ Success', `Added ₹${n.toLocaleString()} to ${selectedInv.title}`);
+      } else {
+        if (Platform.OS === 'web') window.alert(res.message);
+        else Alert.alert('Error', res.message);
+      }
+    }
+  };
+
+  const handleSell = () => {
+    if (!selectedInv) return;
+    const executeSell = () => {
+      sellInvestment(selectedInv.id);
+      setManageModal(false);
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Sell ${selectedInv.title} for ₹${selectedInv.currentValue.toLocaleString()}?`)) {
+        executeSell();
+      }
+    } else {
+      Alert.alert(
+        "Sell Investment",
+        `Sell ${selectedInv.title} for ₹${selectedInv.currentValue.toLocaleString()}?\nFunds will be returned to your wallet.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sell", style: "destructive", onPress: executeSell }
+        ]
+      );
+    }
   };
 
   const chartConfig = {
@@ -57,7 +102,7 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={tw`flex-1 ${tc.backgroundMain}`}>
-      <Header title="GroWin" />
+      <Header title="GroWin" showBack={false} />
 
       <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1`}>
         {/* Welcome Row */}
@@ -158,16 +203,21 @@ export const DashboardScreen = ({ navigation }: any) => {
           <View style={tw`px-5 mb-5`}>
             <View style={tw`flex-row justify-between items-center mb-3`}>
               <Text style={tw`${tc.textMain} font-bold text-base`}>My Holdings</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Investments')}>
+              <TouchableOpacity onPress={() => navigation.navigate('Invest')}>
                 <Text style={tw`text-emerald-500 text-xs font-semibold`}>+ Add more</Text>
               </TouchableOpacity>
             </View>
-            {investments.slice(0, 3).map(inv => {
+            {investments.map(inv => {
               const gain = inv.currentValue - inv.amount;
               const pct = ((gain / inv.amount) * 100).toFixed(1);
               const positive = gain >= 0;
               return (
-                <View key={inv.id} style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}>
+                <TouchableOpacity 
+                  key={inv.id} 
+                  style={tw`${tc.backgroundCard} border ${tc.borderMain} rounded-2xl p-4 mb-3 flex-row items-center`}
+                  activeOpacity={0.7}
+                  onPress={() => { setSelectedInv(inv); setManageModal(true); }}
+                >
                   <View style={tw`bg-emerald-500/15 w-11 h-11 rounded-xl items-center justify-center mr-3`}>
                     <Ionicons name={inv.type === 'SIP' ? 'calendar' : inv.type === 'ETF' ? 'bar-chart' : 'briefcase'} size={20} color="#10B981" />
                   </View>
@@ -181,7 +231,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                       {positive ? '+' : ''}{pct}%
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -216,6 +266,73 @@ export const DashboardScreen = ({ navigation }: any) => {
             ))
           )}
         </View>
+        {/* Manage Investment Modal */}
+        <Modal animationType="slide" transparent visible={manageModal} onRequestClose={() => setManageModal(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1 justify-end bg-black/60`}>
+            {selectedInv && (() => {
+              const gain = selectedInv.currentValue - selectedInv.amount;
+              const isProfit = gain >= 0;
+              const pct = ((gain / selectedInv.amount) * 100).toFixed(2);
+              
+              return (
+                <View style={tw`${tc.backgroundCard} rounded-t-3xl border-t ${tc.borderMain} p-6`}>
+                  <View style={tw`flex-row justify-between items-start mb-5`}>
+                    <View style={tw`flex-1 mr-3`}>
+                      <Text style={tw`${tc.textMuted} text-xs uppercase tracking-widest mb-1`}>Manage Asset</Text>
+                      <Text style={tw`${tc.textMain} text-xl font-bold`}>{selectedInv.title}</Text>
+                      <Text style={tw`${tc.textSecondary} text-sm mt-0.5`}>{selectedInv.type} · {selectedInv.riskLevel} Risk</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setManageModal(false)}>
+                      <Ionicons name="close-circle" size={28} color={isDark ? '#4B5563' : '#9CA3AF'} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={tw`flex-row pb-4 border-b ${tc.borderMain} mb-5`}>
+                    <View style={tw`flex-1 items-start`}>
+                      <Text style={tw`${tc.textMuted} text-xs mb-1`}>Current Value</Text>
+                      <Text style={tw`${tc.textMain} font-bold text-lg`}>₹{selectedInv.currentValue.toLocaleString()}</Text>
+                      <Text style={tw`${isProfit ? 'text-emerald-500' : 'text-red-500'} text-xs font-bold mt-1`}>
+                        {isProfit ? '+' : ''}₹{gain.toLocaleString()} ({isProfit ? '+' : ''}{pct}%)
+                      </Text>
+                    </View>
+                    <View style={tw`flex-1 items-end`}>
+                      <Text style={tw`${tc.textMuted} text-xs mb-1`}>Invested</Text>
+                      <Text style={tw`${tc.textSecondary} font-bold text-lg`}>₹{selectedInv.amount.toLocaleString()}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={tw`${tc.textSecondary} text-xs font-semibold uppercase tracking-wider mb-2`}>Add Funds</Text>
+                  <View style={tw`${tc.inputBackground} border ${tc.borderMain} rounded-xl flex-row items-center px-4 mb-4`}>
+                    <Text style={tw`text-emerald-500 text-2xl font-bold mr-2`}>₹</Text>
+                    <TextInput
+                      style={tw`flex-1 ${tc.inputText} text-2xl font-bold py-3`}
+                      placeholder="0"
+                      placeholderTextColor={isDark ? '#4B5563' : '#9CA3AF'}
+                      keyboardType="numeric"
+                      value={addAmount}
+                      onChangeText={setAddAmount}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={tw`${!addAmount ? tc.backgroundSecondary : 'bg-emerald-500'} py-4 rounded-xl items-center mb-4`}
+                    onPress={handleAddFunds}
+                    disabled={!addAmount}
+                  >
+                    <Text style={tw`${!addAmount ? tc.textMuted : 'text-white'} font-bold text-base`}>Invest More</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={tw`bg-red-500/10 border border-red-500/30 py-4 rounded-xl items-center`}
+                    onPress={handleSell}
+                  >
+                    <Text style={tw`text-red-500 font-bold text-sm`}>Sell Entire Holding</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
+          </KeyboardAvoidingView>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
