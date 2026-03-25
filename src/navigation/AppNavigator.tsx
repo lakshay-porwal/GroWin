@@ -118,7 +118,7 @@ export const AppNavigator = () => {
           <Stack.Screen name="AuthorityPanel" component={AuthorityScreen} />
         ) : needsOnboarding ? (
           // ── Student — no risk profile yet
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="OnboardingInit" component={OnboardingScreen} />
         ) : (
           // ── Student — main app
           <>

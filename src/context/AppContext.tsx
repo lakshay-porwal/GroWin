@@ -278,8 +278,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(updated);
     setUsers(newUsers);
     await saveUsers(newUsers);
-    
-    setTimeout(() => reloadApp(), 500);
   };
 
   const updateProfile = async (name: string) => {

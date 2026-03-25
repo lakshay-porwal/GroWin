@@ -41,7 +41,8 @@ const PROFILE_RESULT: Record<RiskProfileValue, { icon: string; label: string; co
 };
 
 export const OnboardingScreen = () => {
-  const { setRiskProfile, currentUser } = useContext(AppContext);
+  const { setRiskProfile, currentUser, theme } = useContext(AppContext);
+  const isDark = theme === 'dark';
   const navigation = useNavigation<any>();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [scores, setScores] = React.useState<number[]>([]);
@@ -65,6 +66,9 @@ export const OnboardingScreen = () => {
     setSaving(true);
     await setRiskProfile(result);
     setSaving(false);
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
   };
 
   const pct = ((currentStep + 1) / QUESTIONS.length) * 100;
@@ -73,21 +77,21 @@ export const OnboardingScreen = () => {
   if (result) {
     const cfg = PROFILE_RESULT[result];
     return (
-      <SafeAreaView style={tw`flex-1 bg-gray-950`}>
+      <SafeAreaView style={tw`flex-1 ${isDark ? 'bg-gray-950' : 'bg-white'}`}>
         <ScrollView contentContainerStyle={tw`flex-grow px-6 items-center justify-center py-6`} showsVerticalScrollIndicator={false}>
           <View style={tw`${cfg.bg} border ${cfg.border} w-24 h-24 rounded-full items-center justify-center mb-6`}>
             <Text style={tw`text-5xl`}>{cfg.icon}</Text>
           </View>
-          <Text style={tw`text-white text-3xl font-extrabold text-center mb-2`}>{cfg.label}</Text>
-          <Text style={tw`text-gray-400 text-base text-center mb-8 px-4`}>{cfg.desc}</Text>
+          <Text style={tw`${isDark ? 'text-white' : 'text-gray-900'} text-3xl font-extrabold text-center mb-2`}>{cfg.label}</Text>
+          <Text style={tw`${isDark ? 'text-gray-400' : 'text-gray-500'} text-base text-center mb-8 px-4`}>{cfg.desc}</Text>
 
-          <View style={tw`w-full bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-8`}>
+          <View style={tw`w-full ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border rounded-2xl p-4 mb-8`}>
             {(['LOW', 'MEDIUM', 'HIGH'] as RiskProfileValue[]).map(p => {
               const c = PROFILE_RESULT[p];
               return (
-                <View key={p} style={tw`flex-row items-center py-2.5 border-b border-gray-800 last:border-0`}>
+                <View key={p} style={tw`flex-row items-center py-2.5 border-b ${isDark ? 'border-gray-800' : 'border-gray-200'} last:border-0`}>
                   <Text style={tw`text-xl mr-3`}>{c.icon}</Text>
-                  <Text style={[tw`font-bold text-sm`, { color: result === p ? c.color : '#6B7280' }]}>{c.label}</Text>
+                  <Text style={[tw`font-bold text-sm`, { color: result === p ? c.color : (isDark ? '#6B7280' : '#9CA3AF') }]}>{c.label}</Text>
                   {result === p && <View style={tw`ml-auto bg-emerald-500 w-2 h-2 rounded-full`} />}
                 </View>
               );
@@ -111,15 +115,15 @@ export const OnboardingScreen = () => {
 
   // — Quiz screen
   return (
-    <SafeAreaView style={tw`flex-1 bg-gray-950`}>
+    <SafeAreaView style={tw`flex-1 ${isDark ? 'bg-gray-950' : 'bg-white'}`}>
       <ScrollView contentContainerStyle={tw`flex-grow px-6 pt-4 pb-8`} showsVerticalScrollIndicator={false}>
         {/* Progress */}
         <View style={tw`mb-6`}>
           <View style={tw`flex-row justify-between items-center mb-2`}>
-            <Text style={tw`text-gray-500 text-sm font-medium`}>Question {currentStep + 1} of {QUESTIONS.length}</Text>
+            <Text style={tw`${isDark ? 'text-gray-500' : 'text-gray-500'} text-sm font-medium`}>Question {currentStep + 1} of {QUESTIONS.length}</Text>
             <Text style={tw`text-emerald-500 font-bold text-sm`}>{Math.round(pct)}%</Text>
           </View>
-          <View style={tw`h-1.5 bg-gray-800 rounded-full overflow-hidden`}>
+          <View style={tw`h-1.5 ${isDark ? 'bg-gray-800' : 'bg-gray-200'} rounded-full overflow-hidden`}>
             <View style={[tw`h-full bg-emerald-500 rounded-full`, { width: `${pct}%` }]} />
           </View>
         </View>
@@ -128,35 +132,35 @@ export const OnboardingScreen = () => {
         <View style={tw`flex-row items-center mb-1`}>
           {navigation.canGoBack() && (
             <TouchableOpacity onPress={() => navigation.goBack()} style={tw`mr-3`}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="arrow-back" size={24} color={isDark ? '#fff' : '#000'} />
             </TouchableOpacity>
           )}
-          <Text style={tw`text-white text-3xl font-extrabold`}>
+          <Text style={tw`${isDark ? 'text-white' : 'text-gray-900'} text-3xl font-extrabold`}>
             Hey {currentUser?.name?.split(' ')[0]}! 👋
           </Text>
         </View>
-        <Text style={tw`text-gray-500 text-base mb-8 ${navigation.canGoBack() ? 'ml-9' : ''}`}>
+        <Text style={tw`${isDark ? 'text-gray-500' : 'text-gray-500'} text-base mb-8 ${navigation.canGoBack() ? 'ml-9' : ''}`}>
           Let's discover your investor type.
         </Text>
 
         {/* Question card */}
-        <View style={tw`bg-gray-900 border border-gray-800 rounded-3xl p-6 mb-6`}>
+        <View style={tw`${isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border rounded-3xl p-6 mb-6`}>
           <View style={tw`bg-emerald-500/20 w-11 h-11 rounded-xl items-center justify-center mb-4`}>
             <Ionicons name="help-circle" size={24} color="#10B981" />
           </View>
-          <Text style={tw`text-white text-xl font-bold mb-6 leading-7`}>
+          <Text style={tw`${isDark ? 'text-white' : 'text-gray-900'} text-xl font-bold mb-6 leading-7`}>
             {QUESTIONS[currentStep].question}
           </Text>
 
           {QUESTIONS[currentStep].options.map((opt, i) => (
             <TouchableOpacity
               key={i}
-              style={tw`bg-gray-800 border border-gray-700 rounded-2xl p-4 mb-3 flex-row items-center active:bg-gray-700`}
+              style={tw`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-4 mb-3 flex-row items-center active:bg-gray-700`}
               onPress={() => handleOption(opt.score)}
               activeOpacity={0.75}
             >
-              <Text style={tw`text-white text-base flex-1 leading-5`}>{opt.text}</Text>
-              <Ionicons name="chevron-forward" size={18} color="#4B5563" />
+              <Text style={tw`${isDark ? 'text-white' : 'text-gray-800'} text-base flex-1 leading-5`}>{opt.text}</Text>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#4B5563' : '#9CA3AF'} />
             </TouchableOpacity>
           ))}
         </View>
