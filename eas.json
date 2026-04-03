@@ -5,7 +5,7 @@
                 "buildType": "apk"
             },
             "env": {
-                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBIWq1_z3iKOJQJ0BhFRXYuaUpV71CwenQ",
+                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBv9fpol_a6KBm2H4CfJihHX_EfwgLMgC4",
                 "EXPO_PUBLIC_API_URL": "https://growinn.onrender.com"
             }
         },
@@ -14,7 +14,7 @@
                 "buildType": "apk"
             },
             "env": {
-                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBIWq1_z3iKOJQJ0BhFRXYuaUpV71CwenQ",
+                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBv9fpol_a6KBm2H4CfJihHX_EfwgLMgC4",
                 "EXPO_PUBLIC_API_URL": "https://growinn.onrender.com"
             }
         }
