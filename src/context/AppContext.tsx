@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { AppState, AppUser, UserRole, RiskProfile, Expense, Investment, Fund, Goal, Transaction } from '../types';
+import { API_URL } from '../utils/api';
 
 // ─── App Reloader Helper ───────────────────────────────────────────────────────
 const reloadApp = async () => {
@@ -18,11 +19,8 @@ const reloadApp = async () => {
 };
 // ─── Storage Keys ──────────────────────────────────────────────────────────────
 const KEYS = {
-  USERS: '@growin:users',
-  FUNDS: '@growin:funds',
   THEME: '@growin:theme',
   CURRENT_USER_ID: '@growin:currentUserId',
-  USER_DATA: (id: string) => `@growin:data:${id}`,
 };
 
 // ─── Per-User Financial Data ───────────────────────────────────────────────────
@@ -32,7 +30,7 @@ interface UserData {
   investments: Investment[];
   goals: Goal[];
   transactions: Transaction[];
-  lastPLUpdate: string | null; // ISO timestamp of last P&L simulation tick
+  lastPLUpdate: string | null;
 }
 
 const EMPTY_USER_DATA: UserData = {
@@ -115,30 +113,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     (async () => {
       try {
-        const [rawUsers, rawFunds, rawTheme, currentUserId] = await Promise.all([
-          AsyncStorage.getItem(KEYS.USERS),
-          AsyncStorage.getItem(KEYS.FUNDS),
+        const [rawTheme, currentUserId] = await Promise.all([
           AsyncStorage.getItem(KEYS.THEME),
           AsyncStorage.getItem(KEYS.CURRENT_USER_ID),
         ]);
 
-        const loadedUsers: AppUser[] = rawUsers ? JSON.parse(rawUsers) : [ADMIN_SEED];
-        // Ensure admin seed always exists
-        const hasAdmin = loadedUsers.some(u => u.id === 'admin-001');
-        const finalUsers = hasAdmin ? loadedUsers : [ADMIN_SEED, ...loadedUsers];
-
-        setUsers(finalUsers);
-        if (rawFunds) setFunds(JSON.parse(rawFunds));
         if (rawTheme) setTheme(rawTheme as 'light' | 'dark');
 
-        if (currentUserId) {
-          const user = finalUsers.find(u => u.id === currentUserId) ?? null;
-          setCurrentUser(user);
-          if (user) {
-            const rawUD = await AsyncStorage.getItem(KEYS.USER_DATA(user.id));
-            setUserData(rawUD ? JSON.parse(rawUD) : EMPTY_USER_DATA);
+        // Fetch global state from backend
+        try {
+          const res = await fetch(`${API_URL}/api/init`);
+          if (res.ok) {
+            const data = await res.json();
+            setUsers(data.users || [ADMIN_SEED]);
+            setFunds(data.funds || []);
+            
+            if (currentUserId && data.users) {
+              const user = data.users.find((u: AppUser) => u.id === currentUserId) ?? null;
+              setCurrentUser(user);
+              if (user) {
+                const udRes = await fetch(`${API_URL}/api/userData/${user.id}`);
+                if (udRes.ok) {
+                  const ud = await udRes.json();
+                  setUserData(ud);
+                }
+              }
+            }
+          } else {
+             console.warn('Failed to fetch from backend', res.status);
           }
+        } catch (err) {
+          console.warn('Backend not reachable. Using defaults.', err);
         }
+
       } catch (e) {
         console.error('GroWin: failed to load storage', e);
       } finally {
@@ -149,15 +156,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Persist helpers ─────────────────────────────────────────────────────────
   const saveUsers = useCallback(async (u: AppUser[]) => {
-    await AsyncStorage.setItem(KEYS.USERS, JSON.stringify(u));
+    try {
+      await fetch(`${API_URL}/api/users`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(u)
+      });
+    } catch(e) { console.error('Error saving users', e); }
   }, []);
 
   const saveFunds = useCallback(async (f: Fund[]) => {
-    await AsyncStorage.setItem(KEYS.FUNDS, JSON.stringify(f));
+    try {
+      await fetch(`${API_URL}/api/funds`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(f)
+      });
+    } catch(e) { console.error('Error saving funds', e); }
   }, []);
 
   const saveUserData = useCallback(async (uid: string, data: UserData) => {
-    await AsyncStorage.setItem(KEYS.USER_DATA(uid), JSON.stringify(data));
+    try {
+      await fetch(`${API_URL}/api/userData/${uid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch(e) { console.error('Error saving user data', e); }
   }, []);
 
   // Auto-save user financial data whenever it changes
@@ -170,30 +195,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [userData, currentUser, isLoaded, saveUserData]);
 
   // ── Investment P&L simulation (every 3 hours) ────────────────────────
-  const THREE_HOURS_MS = 3 * 60 * 60 * 1000; // 10_800_000 ms
+  const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
-  /**
-   * Apply a small random P&L fluctuation to all investments.
-   * Each investment gains or loses between 0.5% and 2.0%.
-   * Risk profile influences direction bias:
-   *   HIGH  — slightly bullish bias (+0.3%)
-   *   LOW   — slightly defensive (-0.1% floor protects capital)
-   *   MEDIUM — neutral
-   */
   const applyPLUpdate = useCallback((prevData: UserData, userRisk: string | null): UserData => {
     if (prevData.investments.length === 0) return prevData;
     const bias = userRisk === 'HIGH' ? 0.003 : userRisk === 'LOW' ? -0.001 : 0;
     const updatedInvestments = prevData.investments.map(inv => {
-      const delta = (Math.random() * 0.015 + 0.005 + bias); // 0.5%–2.0% base
-      const direction = Math.random() > 0.42 ? 1 : -1;      // ~58% chance of gain
+      const delta = (Math.random() * 0.015 + 0.005 + bias);
+      const direction = Math.random() > 0.42 ? 1 : -1;
       const change = direction * delta;
-      const newValue = Math.max(inv.currentValue * (1 + change), inv.amount * 0.75); // floor at 75% of invested
+      const newValue = Math.max(inv.currentValue * (1 + change), inv.amount * 0.75);
       return { ...inv, currentValue: Math.round(newValue * 100) / 100 };
     });
     return { ...prevData, investments: updatedInvestments, lastPLUpdate: new Date().toISOString() };
   }, []);
 
-  // Run P&L update if stale (on load or user switch) and set up recurring interval
   useEffect(() => {
     if (!isLoaded || !currentUser || currentUser.role !== 'student') return;
 
@@ -201,65 +217,62 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setUserData(prev => applyPLUpdate(prev, currentUser.riskProfile));
     };
 
-    // Check if stale on mount
     const lastUpdate = userData.lastPLUpdate;
     const isStale = !lastUpdate || (Date.now() - new Date(lastUpdate).getTime()) >= THREE_HOURS_MS;
     if (isStale && userData.investments.length > 0) {
       runUpdate();
     }
 
-    // Recurring interval — fires every 3 hours
     const intervalId = setInterval(runUpdate, THREE_HOURS_MS);
     return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, currentUser?.id]);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const register = async (name: string, email: string, password: string, role: UserRole): Promise<{ success: boolean; message: string }> => {
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-      return { success: false, message: 'This email is already registered. Try logging in.' };
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role })
+      });
+      const data = await res.json();
+      if (!data.success) return data;
+      
+      setUsers(data.users);
+      setCurrentUser(data.user);
+      setUserData(EMPTY_USER_DATA);
+      await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, data.user.id);
+      
+      setTimeout(() => reloadApp(), 500);
+      return { success: true, message: data.message };
+    } catch(err) {
+      return { success: false, message: 'Network error. Make sure the backend is running.' };
     }
-    if (password.length < 6) {
-      return { success: false, message: 'Password must be at least 6 characters.' };
-    }
-    const newUser: AppUser = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      role,
-      riskProfile: null,
-      isLoggedIn: true,
-      joinedAt: new Date().toISOString(),
-    };
-    const newUsers = [...users, newUser];
-    setUsers(newUsers);
-    setCurrentUser(newUser);
-    setUserData(EMPTY_USER_DATA);
-    await saveUsers(newUsers);
-    await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, newUser.id);
-    await saveUserData(newUser.id, EMPTY_USER_DATA);
-    
-    setTimeout(() => reloadApp(), 500);
-    return { success: true, message: `Welcome to GroWin, ${newUser.name}! 🎉` };
   };
 
   const loginUser = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; message: string }> => {
-    const user = users.find(
-      u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-    );
-    if (!user) return { success: false, message: 'Incorrect email or password. Please try again.' };
-    if (user.role !== role) {
-      return { success: false, message: `This account is not registered as a ${role}.` };
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role })
+      });
+      const data = await res.json();
+      if (!data.success) return data;
+      
+      setCurrentUser(data.user);
+      if (data.data) {
+        setUserData(data.data);
+      } else {
+        setUserData(EMPTY_USER_DATA);
+      }
+      await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, data.user.id);
+      
+      setTimeout(() => reloadApp(), 500);
+      return { success: true, message: data.message };
+    } catch(err) {
+      return { success: false, message: 'Network error. Make sure the backend is running.' };
     }
-    
-    setCurrentUser(user);
-    const rawUD = await AsyncStorage.getItem(KEYS.USER_DATA(user.id));
-    setUserData(rawUD ? JSON.parse(rawUD) : EMPTY_USER_DATA);
-    await AsyncStorage.setItem(KEYS.CURRENT_USER_ID, user.id);
-    
-    setTimeout(() => reloadApp(), 500);
-    return { success: true, message: `Welcome back, ${user.name}! 👋` };
   };
 
   const logout = async () => {

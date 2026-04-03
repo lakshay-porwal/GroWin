@@ -3,11 +3,19 @@
         "preview": {
             "android": {
                 "buildType": "apk"
+            },
+            "env": {
+                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBIWq1_z3iKOJQJ0BhFRXYuaUpV71CwenQ",
+                "EXPO_PUBLIC_API_URL": "http://192.168.0.100:3000"
             }
         },
         "production": {
             "android": {
                 "buildType": "apk"
+            },
+            "env": {
+                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBIWq1_z3iKOJQJ0BhFRXYuaUpV71CwenQ",
+                "EXPO_PUBLIC_API_URL": "http://192.168.0.100:3000"
             }
         }
     }

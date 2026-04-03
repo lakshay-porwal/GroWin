@@ -1,0 +1,25 @@
+{
+  "users": [
+    {
+      "id": "admin-001",
+      "name": "Admin",
+      "email": "admin@growin.app",
+      "password": "admin123",
+      "role": "admin",
+      "riskProfile": null,
+      "isLoggedIn": false,
+      "joinedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "funds": [],
+  "userData": {
+    "admin-001": {
+      "walletBalance": 0,
+      "expenses": [],
+      "investments": [],
+      "goals": [],
+      "transactions": [],
+      "lastPLUpdate": null
+    }
+  }
+}
